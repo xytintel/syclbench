@@ -86,7 +86,7 @@ struct gemm_sizes {
 };
 
 int main() {
-    std::cout << "gemm_simt_fp16_naive\n";
+    std::cout << "hgemm_simt_naive\n";
     sycl::queue queue(sycl::gpu_selector_v, cl::sycl::property_list {cl::sycl::property::queue::enable_profiling()});
     using scalar_t = sycl::half;
 
