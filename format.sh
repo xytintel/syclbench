@@ -1,1 +1,1 @@
-clang-format -i gemm/*.cpp
+clang-format -i GEMM/*.cpp
