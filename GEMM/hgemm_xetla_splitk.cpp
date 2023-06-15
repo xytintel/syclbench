@@ -235,9 +235,10 @@ int main() {
 
     std::vector<gemm_sizes> sizes;
 
-    sizes.push_back(gemm_sizes(4, 4096, 4096, 0.5, 0.5));
-    sizes.push_back(gemm_sizes(4, 16384, 4096, 0.5, 0.5));
-    sizes.push_back(gemm_sizes(4, 4096, 16384, 0.5, 0.5));
+    sizes.push_back(gemm_sizes(1, 4096, 4096, 0.5, 0.5));
+    sizes.push_back(gemm_sizes(1, 16384, 4096, 0.5, 0.5));
+    sizes.push_back(gemm_sizes(1, 4096, 16384, 0.5, 0.5));
+    sizes.push_back(gemm_sizes(1, 32000, 4096, 0.5, 0.5));
 
     for (auto size : sizes) {
         int m = size.m;
