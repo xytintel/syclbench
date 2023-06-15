@@ -75,12 +75,12 @@ float dtype_cast(sycl::queue &q, const in_t *in, out_t *out, size_t n, const flo
 template <
     typename scalar_t,
     int WG_M = 8,
-    int WG_N = 128,
+    int WG_N = 32,
     int SG_M = 8,
-    int SG_N = 32,
-    int KS = 4,
+    int SG_N = 16,
+    int KS = 16,
     int KN = 32,
-    bool B_ROW_MAJOR = true>
+    bool B_ROW_MAJOR = false>
 float gemm_xpu(
     sycl::queue &queue,
     scalar_t *output,
@@ -194,7 +194,7 @@ inline void gemm_xpu_ref_kernel(item_t &item, scalar_t *out, const scalar_t *a,
     if (mi < m && ni < n) {
         float acc = 0.f;
         for (int ki = 0; ki < k; ki++) {
-            acc += (float)a[mi * k + ki] * (float)b[ki * n + ni];
+            acc += (float)a[mi * k + ki] * (float)b[ni * k + ki];
         }
         auto r = (float)alpha * acc;
         out[mi * n + ni] = r + (float)beta * (float)out[mi * n + ni];
