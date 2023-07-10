@@ -57,6 +57,8 @@ int main() {
                 PRINT_PROP(profiling_timer_resolution)
                 PRINT_PROP(is_available)
 
+                PRINT_PROP(partition_max_sub_devices)
+
                 std::cout << std::endl;
             }
         }
