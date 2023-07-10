@@ -27,7 +27,7 @@ int main() {
         auto device_list = p.get_devices();
         for (const auto &device : device_list) {
             if (device.is_gpu()) {
-                std::cout << "[" << count << "] " << device.get_info<sycl::info::device::name>() << std::endl;
+                std::cout << "[" << count++ << "] " << device.get_info<sycl::info::device::name>() << std::endl;
                 PRINT_PROP(vendor)
                 PRINT_PROP(vendor_id)
                 PRINT_PROP(driver_version)
