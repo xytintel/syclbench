@@ -130,7 +130,23 @@ inline double gemm_xpu(
     const int m,
     const int n,
     const int k) {
-    return gemm_xpu_impl<scalar_t, /*WG_M*/ 8, /*WG_N*/ 32, /*SG_M*/ 8, /*SG_N*/ 16, /*SG_K*/ 64, /*SLM_KS*/ 8, /*L3_KS*/ 1, 1, 3>(queue, out, a, b, m, n, k);
+    if (m >= 1024) {
+        return gemm_xpu_impl<scalar_t, /*WG_M*/ 256, /*WG_N*/ 256, /*SG_M*/ 32, /*SG_N*/ 64, /*SG_K*/ 32, /*SLM_KS*/ 1, 1, 1, 3>(queue, out, a, b, m, n, k);
+    } else if (m >= 32) {
+        return gemm_xpu_impl<scalar_t, /*WG_M*/ 32, /*WG_N*/ 256, /*SG_M*/ 8, /*SG_N*/ 32, /*SG_K*/ 16, /*SLM_KS*/ 1, 1, 1, 3>(queue, out, a, b, m, n, k);
+    } else if (n == 13824 && (k == 4096 || k == 5120)) {
+        return gemm_xpu_impl<scalar_t, /*WG_M*/ 8, /*WG_N*/ 512, /*SG_M*/ 8, /*SG_N*/ 32, /*SG_K*/ 16, /*SLM_KS*/ 2, 1, 1, 3>(queue, out, a, b, m, n, k);
+    } else if ((n == 4096 || n == 5120) && k == 13824) {
+        return gemm_xpu_impl<scalar_t, /*WG_M*/ 8, /*WG_N*/ 128, /*SG_M*/ 8, /*SG_N*/ 16, /*SG_K*/ 16, /*SLM_KS*/ 4, 1, 1, 3>(queue, out, a, b, m, n, k);
+    } else if (n >= 4096 && n < 5120) {
+        return gemm_xpu_impl<scalar_t, /*WG_M*/ 32, /*WG_N*/ 64, /*SG_M*/ 8, /*SG_N*/ 16, /*SG_K*/ 16, /*SLM_KS*/ 2, 1, 1, 3>(queue, out, a, b, m, n, k);
+    } else if (n >= 5120 && n < 11008) {
+        return gemm_xpu_impl<scalar_t, /*WG_M*/ 8, /*WG_N*/ 128, /*SG_M*/ 8, /*SG_N*/ 16, /*SG_K*/ 16, /*SLM_KS*/ 4, 1, 1, 3>(queue, out, a, b, m, n, k);
+    } else if (n >= 11008 && n < 13824) {
+        return gemm_xpu_impl<scalar_t, /*WG_M*/ 16, /*WG_N*/ 256, /*SG_M*/ 8, /*SG_N*/ 16, /*SG_K*/ 16, /*SLM_KS*/ 1, 1, 1, 3>(queue, out, a, b, m, n, k);
+    } else {
+        return gemm_xpu_impl<scalar_t, /*WG_M*/ 8, /*WG_N*/ 512, /*SG_M*/ 8, /*SG_N*/ 16, /*SG_K*/ 16, /*SLM_KS*/ 1, 1, 1, 3>(queue, out, a, b, m, n, k);
+    }
 }
 
 template <typename scalar_t, typename item_t>
@@ -183,6 +199,7 @@ int main() {
     using scalar_t = sycl::half;
 
     std::vector<gemm_sizes> sizes;
+    // warmup
     for (int i = 0; i < 3; i++)
         sizes.push_back(gemm_sizes(2048, 2048, 2048, 1.0, 0.0));
 
@@ -205,6 +222,7 @@ int main() {
         sizes.push_back(gemm_sizes(ms[i], 16384, 4096, 1.0, 0.0));
     }
 
+    int count = 0;
     for (auto size : sizes) {
         int m = size.m;
         int n = size.n;
@@ -212,8 +230,9 @@ int main() {
         auto alpha = size.alpha;
         auto beta = size.beta;
 
-        std::cout << "m=" << m << ", n=" << n << ", k=" << k << ", alpha=" << alpha
-                  << ", beta=" << beta << "\n";
+        if (count >= 3)
+            std::cout << "m=" << m << ", n=" << n << ", k=" << k << ", alpha=" << alpha
+                      << ", beta=" << beta << "\n";
 
         auto a_cpu = new scalar_t[m * k];
         auto b_cpu = new scalar_t[k * n];
@@ -245,11 +264,13 @@ int main() {
             gemm_xpu<scalar_t>(queue, out_xpu, a_xpu, b_xpu, m, n, k);
 
         double total_gbytes = ((double)m * k + k * n + m * n + m * n) * sizeof(scalar_t) / 1000.0 / 1000 / 1000;
-        std::cout << timems << " ms, " << total_gbytes / (timems / 1000.0)
-                  << " gbps, ";
+        if (count >= 3)
+            std::cout << timems << " ms, " << total_gbytes / (timems / 1000.0)
+                      << " gbps, ";
 
         double tflops = ((double)2 * m * n * k) / (timems / 1000) * 1e-12;
-        std::cout << tflops << " tflops\n";
+        if (count >= 3)
+            std::cout << tflops << " tflops\n";
 
         auto out_xpu_ref_ = new scalar_t[m * n];
         auto out_xpu_ = new scalar_t[m * n];
@@ -260,7 +281,8 @@ int main() {
             auto diff = std::abs((float)out_xpu_[i] - (float)out_xpu_ref_[i]);
             maxdiff = std::max(maxdiff, diff);
         }
-        std::cout << "maxdiff: " << maxdiff << std::endl;
+        if (count >= 3)
+            std::cout << "maxdiff: " << maxdiff << std::endl;
 
         sycl::free(a_xpu, queue);
         sycl::free(b_xpu, queue);
@@ -273,6 +295,7 @@ int main() {
         delete[] out_cpu;
         delete[] out_xpu_;
         delete[] out_xpu_ref_;
+        count++;
     }
     return 0;
 }
