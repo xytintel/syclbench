@@ -138,7 +138,7 @@ inline double gemm_xpu_impl(
 
 #define DESC_POLICY(WG_M, WG_N, SG_M, SG_N, SG_K) gemm_xpu_##WG_M##x##WG_N##_##SG_M##x##SG_N##x##SG_K##_
 
-#define NUM_POLICIES 11
+#define NUM_POLICIES 13
 
 DISPATCH_POLICY(32, 64, 8, 16, 16)
 DISPATCH_POLICY(256, 256, 32, 64, 16)
@@ -151,6 +151,8 @@ DISPATCH_POLICY(8, 256, 8, 16, 32)
 DISPATCH_POLICY(8, 512, 8, 16, 32)
 DISPATCH_POLICY(256, 256, 32, 64, 32)
 DISPATCH_POLICY(32, 256, 8, 32, 16)
+DISPATCH_POLICY(8, 512, 8, 32, 16)
+DISPATCH_POLICY(32, 64, 8, 16, 32)
 
 double (*policies[NUM_POLICIES])(sycl::queue &, sycl::half *, const sycl::half *, const sycl::half *, const int, const int, const int, const bool) = {
     DESC_POLICY(32, 64, 8, 16, 16),
@@ -164,6 +166,8 @@ double (*policies[NUM_POLICIES])(sycl::queue &, sycl::half *, const sycl::half *
     DESC_POLICY(8, 512, 8, 16, 32),
     DESC_POLICY(256, 256, 32, 64, 32),
     DESC_POLICY(32, 256, 8, 32, 16),
+    DESC_POLICY(8, 512, 8, 32, 16),
+    DESC_POLICY(32, 64, 8, 16, 32),
 };
 
 template <typename scalar_t>
