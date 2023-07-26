@@ -278,6 +278,8 @@ int main() {
         sizes.push_back(gemm_sizes(ms[i], 14336, 1792, 1.0, 0.0));
         sizes.push_back(gemm_sizes(ms[i], 14336, 7168, 1.0, 0.0));
         sizes.push_back(gemm_sizes(ms[i], 16384, 4096, 1.0, 0.0));
+
+        sizes.push_back(gemm_sizes(ms[i], 50400, 4096, 1.0, 0.0));
     }
 
     int count = 0;
