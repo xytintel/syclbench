@@ -48,7 +48,7 @@ inline double gemm_xpu_impl(
     const int k,
     const bool verbose) {
     if (verbose)
-        std::cout << "m=" << m << ", n=" << n << ", k=" << k << ", WG_M=" << WG_M << ", WG_N=" << WG_N << ", SG_M=" << SG_M << ", SG_N=" << SG_N << ", SG_K=" << SG_K << "\n";
+        std::cout << "m=" << m << ", n=" << n << ", k=" << k << ", WG_M=" << WG_M << ", WG_N=" << WG_N << ", SG_M=" << SG_M << ", SG_N=" << SG_N << ", SG_K=" << SG_K;
     constexpr mem_layout layout_a = mem_layout::row_major;
     constexpr mem_layout layout_b =
         B_ROW_MAJOR ? mem_layout::row_major : mem_layout::col_major;
@@ -203,7 +203,9 @@ inline double gemm_xpu(
     add_noice<scalar_t>(queue, const_cast<scalar_t *>(a), m * k);
     add_noice<scalar_t>(queue, const_cast<scalar_t *>(b), k * n);
     add_noice<scalar_t>(queue, out, m * n);
-    return policies[index_min](queue, out, a, b, m, n, k, true);
+    auto timems = policies[index_min](queue, out, a, b, m, n, k, true);
+    std::cout << ", policy_id=" << index_min << "\n";
+    return timems;
 }
 
 template <typename scalar_t, typename item_t>
@@ -260,9 +262,9 @@ int main() {
     for (int i = 0; i < 3; i++)
         sizes.push_back(gemm_sizes(2048, 2048, 2048, 1.0, 0.0));
 
-    int ms[4] = {1, 32, 64, 128};
+    int ms[10] = {1, 8, 16, 32, 48, 64, 80, 96, 112, 128};
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 10; i++) {
         sizes.push_back(gemm_sizes(ms[i], 4096, 4096, 1.0, 0.0));
         sizes.push_back(gemm_sizes(ms[i], 5120, 5120, 1.0, 0.0));
         sizes.push_back(gemm_sizes(ms[i], 14336, 14336, 1.0, 0.0));
