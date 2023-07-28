@@ -47,8 +47,6 @@ inline double gemm_xpu_impl(
     const int n,
     const int k,
     const bool verbose) {
-    if (verbose)
-        std::cout << "m=" << m << ", n=" << n << ", k=" << k << ", WG_M=" << WG_M << ", WG_N=" << WG_N << ", SG_M=" << SG_M << ", SG_N=" << SG_N << ", SG_K=" << SG_K;
     constexpr mem_layout layout_a = mem_layout::row_major;
     constexpr mem_layout layout_b =
         B_ROW_MAJOR ? mem_layout::row_major : mem_layout::col_major;
@@ -56,6 +54,10 @@ inline double gemm_xpu_impl(
     uint32_t group_range_n = (n + WG_N - 1) / WG_N;
     uint32_t thread_range_m = WG_M / SG_M;
     uint32_t thread_range_n = WG_N / SG_N;
+    if (verbose) {
+        std::cout << "m=" << m << ", n=" << n << ", k=" << k << ", n_ss=" << group_range_m * group_range_n << ", N_SG_PER_SS=" << SLM_KS * thread_range_m * thread_range_n
+                  << ", WG_M=" << WG_M << ", WG_N=" << WG_N << ", SG_M=" << SG_M << ", SG_N=" << SG_N << ", SG_K=" << SG_K << ", SLM_KS=" << SLM_KS;
+    }
     uint32_t lda = k;
     uint32_t ldb = B_ROW_MAJOR ? n : k;
     uint32_t ldc = n;
@@ -187,7 +189,8 @@ inline double gemm_xpu(
     const scalar_t *b,
     const int m,
     const int n,
-    const int k) {
+    const int k,
+    const bool is_warmup) {
     double timems_min = 100000.0f;
     int index_min = 0;
     for (int i = 0; i < NUM_POLICIES; i++) {
@@ -195,6 +198,8 @@ inline double gemm_xpu(
         add_noice<scalar_t>(queue, const_cast<scalar_t *>(b), k * n);
         add_noice<scalar_t>(queue, out, m * n);
         auto t = policies[i](queue, out, a, b, m, n, k, false);
+        if (!is_warmup)
+            std::cout << "policy_" << i << ": " << t << "\n";
         if (t < timems_min) {
             timems_min = t;
             index_min = i;
@@ -203,8 +208,9 @@ inline double gemm_xpu(
     add_noice<scalar_t>(queue, const_cast<scalar_t *>(a), m * k);
     add_noice<scalar_t>(queue, const_cast<scalar_t *>(b), k * n);
     add_noice<scalar_t>(queue, out, m * n);
-    auto timems = policies[index_min](queue, out, a, b, m, n, k, true);
-    std::cout << ", policy_id=" << index_min << "\n";
+    auto timems = policies[index_min](queue, out, a, b, m, n, k, !is_warmup);
+    if (!is_warmup)
+        std::cout << ", policy_id=" << index_min << "\n";
     return timems;
 }
 
@@ -262,27 +268,57 @@ int main() {
     for (int i = 0; i < 3; i++)
         sizes.push_back(gemm_sizes(2048, 2048, 2048, 1.0, 0.0));
 
-    int ms[10] = {1, 8, 16, 32, 48, 64, 80, 96, 112, 128};
+    // int ms[10] = {1, 8, 16, 32, 48, 64, 80, 96, 112, 128};
 
-    for (int i = 0; i < 10; i++) {
-        sizes.push_back(gemm_sizes(ms[i], 4096, 4096, 1.0, 0.0));
-        sizes.push_back(gemm_sizes(ms[i], 5120, 5120, 1.0, 0.0));
-        sizes.push_back(gemm_sizes(ms[i], 14336, 14336, 1.0, 0.0));
+    // for (int i = 0; i < 10; i++) {
+    //     sizes.push_back(gemm_sizes(ms[i], 4096, 4096, 1.0, 0.0));
+    //     sizes.push_back(gemm_sizes(ms[i], 5120, 5120, 1.0, 0.0));
+    //     sizes.push_back(gemm_sizes(ms[i], 14336, 14336, 1.0, 0.0));
 
-        sizes.push_back(gemm_sizes(ms[i], 1792, 14336, 1.0, 0.0));
-        sizes.push_back(gemm_sizes(ms[i], 4096, 11008, 1.0, 0.0));
-        sizes.push_back(gemm_sizes(ms[i], 4096, 16384, 1.0, 0.0));
-        sizes.push_back(gemm_sizes(ms[i], 5120, 13824, 1.0, 0.0));
-        sizes.push_back(gemm_sizes(ms[i], 7168, 14336, 1.0, 0.0));
+    //     sizes.push_back(gemm_sizes(ms[i], 1792, 14336, 1.0, 0.0));
+    //     sizes.push_back(gemm_sizes(ms[i], 4096, 11008, 1.0, 0.0));
+    //     sizes.push_back(gemm_sizes(ms[i], 4096, 16384, 1.0, 0.0));
+    //     sizes.push_back(gemm_sizes(ms[i], 5120, 13824, 1.0, 0.0));
+    //     sizes.push_back(gemm_sizes(ms[i], 7168, 14336, 1.0, 0.0));
 
-        sizes.push_back(gemm_sizes(ms[i], 11008, 4096, 1.0, 0.0));
-        sizes.push_back(gemm_sizes(ms[i], 13824, 5120, 1.0, 0.0));
-        sizes.push_back(gemm_sizes(ms[i], 14336, 1792, 1.0, 0.0));
-        sizes.push_back(gemm_sizes(ms[i], 14336, 7168, 1.0, 0.0));
-        sizes.push_back(gemm_sizes(ms[i], 16384, 4096, 1.0, 0.0));
+    //     sizes.push_back(gemm_sizes(ms[i], 11008, 4096, 1.0, 0.0));
+    //     sizes.push_back(gemm_sizes(ms[i], 13824, 5120, 1.0, 0.0));
+    //     sizes.push_back(gemm_sizes(ms[i], 14336, 1792, 1.0, 0.0));
+    //     sizes.push_back(gemm_sizes(ms[i], 14336, 7168, 1.0, 0.0));
+    //     sizes.push_back(gemm_sizes(ms[i], 16384, 4096, 1.0, 0.0));
 
-        sizes.push_back(gemm_sizes(ms[i], 50400, 4096, 1.0, 0.0));
-    }
+    //     sizes.push_back(gemm_sizes(ms[i], 50400, 4096, 1.0, 0.0));
+    // }
+
+    // sizes.push_back(gemm_sizes(1, 50400, 4096, 1.0, 0.0)); // 6
+    // sizes.push_back(gemm_sizes(8, 50400, 4096, 1.0, 0.0)); // 6
+    // sizes.push_back(gemm_sizes(16, 50400, 4096, 1.0, 0.0));
+
+    // sizes.push_back(gemm_sizes(1, 65536, 4096, 1.0, 0.0)); // 6
+    // sizes.push_back(gemm_sizes(1, 32768, 4096, 1.0, 0.0)); // 6
+    // sizes.push_back(gemm_sizes(1, 16384, 4096, 1.0, 0.0)); // 6
+
+    // sizes.push_back(gemm_sizes(8, 65536, 2048, 1.0, 0.0));
+    // sizes.push_back(gemm_sizes(8, 65536, 4096, 1.0, 0.0));
+    // sizes.push_back(gemm_sizes(8, 65536, 8192, 1.0, 0.0));
+    // sizes.push_back(gemm_sizes(8, 65536, 16384, 1.0, 0.0));
+
+    // sizes.push_back(gemm_sizes(1, 65536, 32768, 1.0, 0.0));
+    // sizes.push_back(gemm_sizes(1, 65536, 65536, 1.0, 0.0));
+
+    // sizes.push_back(gemm_sizes(1, 8192, 4096, 1.0, 0.0));
+
+    // sizes.push_back(gemm_sizes(32, 50400, 4096, 1.0, 0.0));
+
+    // sizes.push_back(gemm_sizes(1, 50400, 4096, 1.0, 0.0));
+    // sizes.push_back(gemm_sizes(1, 40600, 4096, 1.0, 0.0));
+
+    sizes.push_back(gemm_sizes(60, 4096, 4096, 1.0, 0.0));
+    sizes.push_back(gemm_sizes(60, 16384, 4096, 1.0, 0.0));
+    sizes.push_back(gemm_sizes(60, 16384, 4096, 1.0, 0.0));
+    // sizes.push_back(gemm_sizes(114960, 50400, 4096, 1.0, 0.0));
+    sizes.push_back(gemm_sizes(60, 50400, 4096, 1.0, 0.0));
+    sizes.push_back(gemm_sizes(28740, 4096, 4096, 1.0, 0.0));
 
     int count = 0;
     for (auto size : sizes) {
@@ -292,9 +328,8 @@ int main() {
         auto alpha = size.alpha;
         auto beta = size.beta;
 
-        // if (count >= 3)
-        //     std::cout << "m=" << m << ", n=" << n << ", k=" << k << ", alpha=" << alpha
-        //               << ", beta=" << beta << "\n";
+        bool is_warmup = false;
+        if (count < 3) is_warmup = true;
 
         auto a_cpu = new scalar_t[m * k];
         auto b_cpu = new scalar_t[k * n];
@@ -323,7 +358,7 @@ int main() {
         gemm_xpu_ref<scalar_t>(queue, out_xpu_ref, a_xpu_ref, b_xpu_ref, m, n, k,
                                alpha, beta);
         auto timems =
-            gemm_xpu<scalar_t>(queue, out_xpu, a_xpu, b_xpu, m, n, k);
+            gemm_xpu<scalar_t>(queue, out_xpu, a_xpu, b_xpu, m, n, k, is_warmup);
 
         double total_gbytes = ((double)m * k + k * n + m * n) * sizeof(scalar_t) / 1000.0 / 1000 / 1000;
         if (count >= 3)
