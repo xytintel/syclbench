@@ -328,13 +328,12 @@ int main() {
             gemm_xpu<scalar_t>(queue, out_xpu, a_xpu, b_xpu, m, n, k, is_warmup);
 
         double total_gbytes = ((double)m * k + k * n + m * n) * sizeof(scalar_t) / 1000.0 / 1000 / 1000;
-        if (count >= 3)
-            std::cout << timems << " ms, " << total_gbytes / (timems / 1000.0)
-                      << " gbps, ";
-
         double tflops = ((double)2 * m * n * k) / (timems / 1000) * 1e-12;
-        if (count >= 3)
-            std::cout << tflops << " tflops\n";
+
+        if (count >= 3) {
+            std::cout << "timems=" << timems << ", gbps=" << total_gbytes / (timems / 1000.0)
+                      << ", tflops=" << tflops << "\n";
+        }
 
         auto out_xpu_ref_ = new scalar_t[m * n];
         auto out_xpu_ = new scalar_t[m * n];
@@ -347,7 +346,7 @@ int main() {
         }
         assert(maxdiff <= (k / 4096.0 * 1.01));
         if (count >= 3)
-            std::cout << "maxdiff: " << maxdiff << std::endl;
+            std::cout << "maxdiff=" << maxdiff << std::endl;
 
         sycl::free(a_xpu, queue);
         sycl::free(b_xpu, queue);
