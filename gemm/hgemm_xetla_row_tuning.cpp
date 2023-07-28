@@ -198,8 +198,13 @@ inline double gemm_xpu(
         add_noice<scalar_t>(queue, const_cast<scalar_t *>(b), k * n);
         add_noice<scalar_t>(queue, out, m * n);
         auto t = policies[i](queue, out, a, b, m, n, k, false);
-        if (!is_warmup)
-            std::cout << "policy_" << i << ": " << t << "\n";
+        if (!is_warmup) {
+            std::cout << "policy_" << i << "=" << t;
+            if (i != NUM_POLICIES - 1)
+                std::cout << ", ";
+            else
+                std::cout << "\n";
+        }
         if (t < timems_min) {
             timems_min = t;
             index_min = i;
@@ -251,7 +256,7 @@ void gemm_xpu_ref(sycl::queue &q, scalar_t *out, const scalar_t *a,
 struct gemm_sizes {
     int m, n, k;
     float alpha, beta;
-    gemm_sizes(int m_, int n_, int k_, float a, float b) :
+    gemm_sizes(int m_, int n_, int k_, float a = 1.0, float b = 0.0) :
         m(m_), n(n_), k(k_), alpha(a), beta(b) {
     }
 };
@@ -268,57 +273,19 @@ int main() {
     for (int i = 0; i < 3; i++)
         sizes.push_back(gemm_sizes(2048, 2048, 2048, 1.0, 0.0));
 
-    // int ms[10] = {1, 8, 16, 32, 48, 64, 80, 96, 112, 128};
+    std::vector<int> ms = {1, 8, 16, 32, 48, 64, 80, 96, 112, 128, 256, 1024};
+    std::vector<int> ns = {2048, 4096, 8192, 16384, 32768, 65536};
+    std::vector<int> ks = {2048, 4096, 8192, 16384, 32768};
 
-    // for (int i = 0; i < 10; i++) {
-    //     sizes.push_back(gemm_sizes(ms[i], 4096, 4096, 1.0, 0.0));
-    //     sizes.push_back(gemm_sizes(ms[i], 5120, 5120, 1.0, 0.0));
-    //     sizes.push_back(gemm_sizes(ms[i], 14336, 14336, 1.0, 0.0));
-
-    //     sizes.push_back(gemm_sizes(ms[i], 1792, 14336, 1.0, 0.0));
-    //     sizes.push_back(gemm_sizes(ms[i], 4096, 11008, 1.0, 0.0));
-    //     sizes.push_back(gemm_sizes(ms[i], 4096, 16384, 1.0, 0.0));
-    //     sizes.push_back(gemm_sizes(ms[i], 5120, 13824, 1.0, 0.0));
-    //     sizes.push_back(gemm_sizes(ms[i], 7168, 14336, 1.0, 0.0));
-
-    //     sizes.push_back(gemm_sizes(ms[i], 11008, 4096, 1.0, 0.0));
-    //     sizes.push_back(gemm_sizes(ms[i], 13824, 5120, 1.0, 0.0));
-    //     sizes.push_back(gemm_sizes(ms[i], 14336, 1792, 1.0, 0.0));
-    //     sizes.push_back(gemm_sizes(ms[i], 14336, 7168, 1.0, 0.0));
-    //     sizes.push_back(gemm_sizes(ms[i], 16384, 4096, 1.0, 0.0));
-
-    //     sizes.push_back(gemm_sizes(ms[i], 50400, 4096, 1.0, 0.0));
-    // }
-
-    // sizes.push_back(gemm_sizes(1, 50400, 4096, 1.0, 0.0)); // 6
-    // sizes.push_back(gemm_sizes(8, 50400, 4096, 1.0, 0.0)); // 6
-    // sizes.push_back(gemm_sizes(16, 50400, 4096, 1.0, 0.0));
-
-    // sizes.push_back(gemm_sizes(1, 65536, 4096, 1.0, 0.0)); // 6
-    // sizes.push_back(gemm_sizes(1, 32768, 4096, 1.0, 0.0)); // 6
-    // sizes.push_back(gemm_sizes(1, 16384, 4096, 1.0, 0.0)); // 6
-
-    // sizes.push_back(gemm_sizes(8, 65536, 2048, 1.0, 0.0));
-    // sizes.push_back(gemm_sizes(8, 65536, 4096, 1.0, 0.0));
-    // sizes.push_back(gemm_sizes(8, 65536, 8192, 1.0, 0.0));
-    // sizes.push_back(gemm_sizes(8, 65536, 16384, 1.0, 0.0));
-
-    // sizes.push_back(gemm_sizes(1, 65536, 32768, 1.0, 0.0));
-    // sizes.push_back(gemm_sizes(1, 65536, 65536, 1.0, 0.0));
-
-    // sizes.push_back(gemm_sizes(1, 8192, 4096, 1.0, 0.0));
-
-    // sizes.push_back(gemm_sizes(32, 50400, 4096, 1.0, 0.0));
-
-    // sizes.push_back(gemm_sizes(1, 50400, 4096, 1.0, 0.0));
-    // sizes.push_back(gemm_sizes(1, 40600, 4096, 1.0, 0.0));
-
-    sizes.push_back(gemm_sizes(60, 4096, 4096, 1.0, 0.0));
-    sizes.push_back(gemm_sizes(60, 16384, 4096, 1.0, 0.0));
-    sizes.push_back(gemm_sizes(60, 16384, 4096, 1.0, 0.0));
-    // sizes.push_back(gemm_sizes(114960, 50400, 4096, 1.0, 0.0));
-    sizes.push_back(gemm_sizes(60, 50400, 4096, 1.0, 0.0));
-    sizes.push_back(gemm_sizes(28740, 4096, 4096, 1.0, 0.0));
+    for (auto m : ms) {
+        for (auto n : ns) {
+            for (auto k : ks) {
+                float gbytes = m * n * k * 2 / 1024 / 1024 / 1024;
+                if (gbytes <= 1.0)
+                    sizes.push_back(gemm_sizes(m, n, k));
+            }
+        }
+    }
 
     int count = 0;
     for (auto size : sizes) {
@@ -378,6 +345,7 @@ int main() {
             auto diff = std::abs((float)out_xpu_[i] - (float)out_xpu_ref_[i]);
             maxdiff = std::max(maxdiff, diff);
         }
+        assert(maxdiff <= (k / 4096.0 * 1.01));
         if (count >= 3)
             std::cout << "maxdiff: " << maxdiff << std::endl;
 
