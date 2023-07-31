@@ -5,6 +5,8 @@
 #include <random>
 #include <vector>
 #include <assert.h>
+#include <map>
+#include <algorithm>
 
 using namespace cl::sycl;
 using namespace gpu;
@@ -140,21 +142,22 @@ inline double gemm_xpu_impl(
 
 #define DESC_POLICY(WG_M, WG_N, SG_M, SG_N, SG_K) gemm_xpu_##WG_M##x##WG_N##_##SG_M##x##SG_N##x##SG_K##_
 
-#define NUM_POLICIES 13
+#define NUM_POLICIES 14
 
-DISPATCH_POLICY(32, 64, 8, 16, 16)
-DISPATCH_POLICY(256, 256, 32, 64, 16)
-DISPATCH_POLICY(8, 64, 8, 16, 64)
-DISPATCH_POLICY(8, 128, 8, 16, 32)
-DISPATCH_POLICY(8, 128, 8, 16, 16)
-DISPATCH_POLICY(16, 256, 8, 16, 16)
-DISPATCH_POLICY(8, 512, 8, 16, 16)
-DISPATCH_POLICY(8, 256, 8, 16, 32)
-DISPATCH_POLICY(8, 512, 8, 16, 32)
-DISPATCH_POLICY(256, 256, 32, 64, 32)
-DISPATCH_POLICY(32, 256, 8, 32, 16)
-DISPATCH_POLICY(8, 512, 8, 32, 16)
-DISPATCH_POLICY(32, 64, 8, 16, 32)
+DISPATCH_POLICY(32, 64, 8, 16, 16)    // 0
+DISPATCH_POLICY(256, 256, 32, 64, 16) // 1
+DISPATCH_POLICY(8, 64, 8, 16, 64)     // 2
+DISPATCH_POLICY(8, 128, 8, 16, 32)    // 3
+DISPATCH_POLICY(8, 128, 8, 16, 16)    // 4
+DISPATCH_POLICY(16, 256, 8, 16, 16)   // 5
+DISPATCH_POLICY(8, 512, 8, 16, 16)    // 6
+DISPATCH_POLICY(8, 256, 8, 16, 32)    // 7
+DISPATCH_POLICY(8, 512, 8, 16, 32)    // 8
+DISPATCH_POLICY(256, 256, 32, 64, 32) // 9
+DISPATCH_POLICY(32, 256, 8, 32, 16)   // 10
+DISPATCH_POLICY(8, 512, 8, 32, 16)    // 11
+DISPATCH_POLICY(32, 64, 8, 16, 32)    // 12
+DISPATCH_POLICY(64, 128, 64, 16, 32)  // 13
 
 double (*policies[NUM_POLICIES])(sycl::queue &, sycl::half *, const sycl::half *, const sycl::half *, const int, const int, const int, const bool) = {
     DESC_POLICY(32, 64, 8, 16, 16),
@@ -170,7 +173,62 @@ double (*policies[NUM_POLICIES])(sycl::queue &, sycl::half *, const sycl::half *
     DESC_POLICY(32, 256, 8, 32, 16),
     DESC_POLICY(8, 512, 8, 32, 16),
     DESC_POLICY(32, 64, 8, 16, 32),
+    DESC_POLICY(64, 128, 64, 16, 32),
 };
+
+int policies_mn[NUM_POLICIES][2] = {
+    {32, 64},
+    {256, 256},
+    {8, 64},
+    {8, 128},
+    {8, 128},
+    {16, 256},
+    {8, 512},
+    {8, 256},
+    {8, 512},
+    {256, 256},
+    {32, 256},
+    {8, 512},
+    {32, 64},
+    {64, 128},
+};
+
+struct gemm_cfg_meta {
+    float wg_eff;
+    float num_ss;
+    int idx;
+};
+
+template <int TOTAL_SS = 32>
+int select_gemm_config(const int m, const int n, const int k) {
+    std::vector<gemm_cfg_meta> metas;
+    for (int i = 0; i < NUM_POLICIES; i++) {
+        gemm_cfg_meta meta;
+        int wg_m = policies_mn[i][0];
+        int wg_n = policies_mn[i][1];
+        int ms = (m + wg_m - 1) / wg_m;
+        int ns = (n + wg_n - 1) / wg_n;
+        meta.num_ss = ms * ns;
+        int vm = m > wg_m ? wg_m : m;
+        int vn = n > wg_n ? wg_n : n;
+        meta.wg_eff = (float)vm * vn / (float)wg_m / (float)wg_n;
+        meta.idx = i;
+        metas.push_back(meta);
+    }
+    std::sort(metas.begin(), metas.end(), [](const auto &lhs, const auto &rhs) {
+        if (lhs.num_ss != rhs.num_ss)
+            return lhs.num_ss < rhs.num_ss;
+        else
+            return lhs.wg_eff > rhs.wg_eff;
+    });
+    int idx;
+    for (int i = 0; i < metas.size(); i++) {
+        idx = metas[i].idx;
+        if (metas[i].num_ss >= TOTAL_SS)
+            break;
+    }
+    return idx;
+}
 
 template <typename scalar_t>
 inline void add_noice(sycl::queue &queue, scalar_t *out, int size) {
@@ -213,9 +271,10 @@ inline double gemm_xpu(
     add_noice<scalar_t>(queue, const_cast<scalar_t *>(a), m * k);
     add_noice<scalar_t>(queue, const_cast<scalar_t *>(b), k * n);
     add_noice<scalar_t>(queue, out, m * n);
+    auto auto_selected_policy_id = select_gemm_config(m, n, k);
     auto timems = policies[index_min](queue, out, a, b, m, n, k, !is_warmup);
     if (!is_warmup)
-        std::cout << ", policy_id=" << index_min << "\n";
+        std::cout << ", policy_id=" << index_min << ", auto_selected_policy_id=" << auto_selected_policy_id << "\n";
     return timems;
 }
 
@@ -281,7 +340,7 @@ int main() {
         for (auto n : ns) {
             for (auto k : ks) {
                 float gbytes = m * n * k * 2 / 1024 / 1024 / 1024;
-                if (gbytes <= 1.0)
+                if (gbytes <= 0.5)
                     sizes.push_back(gemm_sizes(m, n, k));
             }
         }
@@ -327,12 +386,14 @@ int main() {
         auto timems =
             gemm_xpu<scalar_t>(queue, out_xpu, a_xpu, b_xpu, m, n, k, is_warmup);
 
-        double total_gbytes = ((double)m * k + k * n + m * n) * sizeof(scalar_t) / 1000.0 / 1000 / 1000;
-        double tflops = ((double)2 * m * n * k) / (timems / 1000) * 1e-12;
+        double total_bytes = ((double)m * k + k * n + m * n) * sizeof(scalar_t);
+        double total_gbytes = total_bytes / 1000.0 / 1000 / 1000;
+        double total_flop = (double)2 * m * n * k;
+        double tflops = total_flop / (timems / 1000) * 1e-12;
 
         if (count >= 3) {
             std::cout << "timems=" << timems << ", gbps=" << total_gbytes / (timems / 1000.0)
-                      << ", tflops=" << tflops << "\n";
+                      << ", tflops=" << tflops << ", ci=" << total_flop / total_bytes << "\n";
         }
 
         auto out_xpu_ref_ = new scalar_t[m * n];
