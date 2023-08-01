@@ -176,31 +176,37 @@ double (*policies[NUM_POLICIES])(sycl::queue &, sycl::half *, const sycl::half *
     DESC_POLICY(64, 128, 64, 16, 32),
 };
 
-int policies_mn[NUM_POLICIES][2] = {
-    {32, 64},
-    {256, 256},
-    {8, 64},
-    {8, 128},
-    {8, 128},
-    {16, 256},
-    {8, 512},
-    {8, 256},
-    {8, 512},
-    {256, 256},
-    {32, 256},
-    {8, 512},
-    {32, 64},
-    {64, 128},
+int policies_mn[NUM_POLICIES][3] = {
+    {32, 64, 16},
+    {256, 256, 16},
+    {8, 64, 64},
+    {8, 128, 32},
+    {8, 128, 16},
+    {16, 256, 16},
+    {8, 512, 16},
+    {8, 256, 32},
+    {8, 512, 32},
+    {256, 256, 32},
+    {32, 256, 16},
+    {8, 512, 16},
+    {32, 64, 32},
+    {64, 128, 32},
 };
 
 struct gemm_cfg_meta {
     float wg_eff;
     float num_ss;
+    float aspect_r;
     int idx;
+    int ks;
 };
 
-template <int TOTAL_SS = 32>
-int select_gemm_config(const int m, const int n, const int k) {
+inline int select_gemm_config(
+    const int m,
+    const int n,
+    const int k,
+    const bool is_b_row_major,
+    const int TOTAL_SS = 64) {
     std::vector<gemm_cfg_meta> metas;
     for (int i = 0; i < NUM_POLICIES; i++) {
         gemm_cfg_meta meta;
@@ -213,13 +219,19 @@ int select_gemm_config(const int m, const int n, const int k) {
         int vn = n > wg_n ? wg_n : n;
         meta.wg_eff = (float)vm * vn / (float)wg_m / (float)wg_n;
         meta.idx = i;
+        meta.aspect_r = std::max((float)wg_m / wg_n, (float)wg_n / wg_m);
+        meta.ks = policies_mn[i][2];
         metas.push_back(meta);
     }
     std::sort(metas.begin(), metas.end(), [](const auto &lhs, const auto &rhs) {
         if (lhs.num_ss != rhs.num_ss)
             return lhs.num_ss < rhs.num_ss;
-        else
+        else if (lhs.wg_eff != rhs.wg_eff)
             return lhs.wg_eff > rhs.wg_eff;
+        else if (lhs.aspect_r != rhs.aspect_r)
+            return lhs.aspect_r < rhs.aspect_r;
+        else
+            return lhs.ks < rhs.ks;
     });
     int idx;
     for (int i = 0; i < metas.size(); i++) {
@@ -227,7 +239,7 @@ int select_gemm_config(const int m, const int n, const int k) {
         if (metas[i].num_ss >= TOTAL_SS)
             break;
     }
-    return idx;
+    return is_b_row_major ? idx : idx + NUM_POLICIES;
 }
 
 template <typename scalar_t>
@@ -271,7 +283,7 @@ inline double gemm_xpu(
     add_noice<scalar_t>(queue, const_cast<scalar_t *>(a), m * k);
     add_noice<scalar_t>(queue, const_cast<scalar_t *>(b), k * n);
     add_noice<scalar_t>(queue, out, m * n);
-    auto auto_selected_policy_id = select_gemm_config(m, n, k);
+    auto auto_selected_policy_id = select_gemm_config(m, n, k, true, 64);
     auto timems = policies[index_min](queue, out, a, b, m, n, k, !is_warmup);
     if (!is_warmup)
         std::cout << ", policy_id=" << index_min << ", auto_selected_policy_id=" << auto_selected_policy_id << "\n";
