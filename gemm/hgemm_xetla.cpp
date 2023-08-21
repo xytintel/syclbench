@@ -369,19 +369,9 @@ int main() {
     for (int i = 0; i < 3; i++)
         sizes.push_back(gemm_sizes(2048, 2048, 2048));
 
-    std::vector<int> ms = {1, 8, 16, 32, 48, 64, 80, 96, 112, 128, 256, 1024};
-    std::vector<int> ns = {2048, 4096, 8192, 16384, 32768, 65536};
-    std::vector<int> ks = {2048, 4096, 8192, 16384, 32768};
-
-    for (auto m : ms) {
-        for (auto n : ns) {
-            for (auto k : ks) {
-                float gbytes = m * n * k * 2 / 1024 / 1024 / 1024;
-                if (gbytes <= 0.5)
-                    sizes.push_back(gemm_sizes(m, n, k));
-            }
-        }
-    }
+    sizes.push_back(gemm_sizes(2048, 2048, 2048));
+    sizes.push_back(gemm_sizes(4096, 4096, 4096));
+    sizes.push_back(gemm_sizes(8192, 8192, 8192));
 
     int count = 0;
     for (auto size : sizes) {
@@ -418,19 +408,22 @@ int main() {
         queue.memcpy(b_xpu_ref, b_cpu, k * n * sizeof(scalar_t)).wait();
         queue.memcpy(out_xpu_ref, out_cpu, m * n * sizeof(scalar_t)).wait();
 
+        flush_cache(queue);
+
         gemm_xpu_ref<scalar_t>(queue, out_xpu_ref, a_xpu_ref, b_xpu_ref, m, n, k,
                                alpha, beta);
         auto timems =
             gemm_xpu<scalar_t>(queue, out_xpu, a_xpu, b_xpu, m, n, k, alpha, beta, is_warmup);
 
         double total_bytes = ((double)m * k + k * n + m * n) * sizeof(scalar_t);
+        if (beta != 0.0f) total_bytes += m * n * sizeof(scalar_t);
         double total_gbytes = total_bytes / 1000.0 / 1000 / 1000;
         double total_flop = (double)2 * m * n * k;
         double tflops = total_flop / (timems / 1000) * 1e-12;
 
-        if (count >= 3) {
+        if (!is_warmup) {
             std::cout << "timems=" << timems << ", gbps=" << total_gbytes / (timems / 1000.0)
-                      << ", tflops=" << tflops << ", ci=" << total_flop / total_bytes << "\n";
+                      << ", tflops=" << tflops << ", compute_pressure=" << total_flop / total_bytes << "\n";
         }
 
         using MaxDiff = CompareMaxdiff<scalar_t>;
@@ -438,7 +431,7 @@ int main() {
         auto maxdiff = diff();
 
         assert(maxdiff <= (k / 4096.0 * 1.01));
-        if (count >= 3)
+        if (!is_warmup)
             std::cout << "maxdiff=" << maxdiff << std::endl;
 
         sycl::free(a_xpu, queue);
