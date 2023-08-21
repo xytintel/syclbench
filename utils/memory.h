@@ -9,7 +9,7 @@ struct alignas(sizeof(scalar_t) * vec_size) aligned_array {
 };
 
 void flush_cache(sycl::queue &queue) {
-    uint32_t size = 1024 * 1024 * 1024;
+    uint32_t size = 256 * 1024 * 1024;
     auto temp_ptr_cpu = new int[size];
     auto temp_ptr_xpu = sycl::aligned_alloc_device<int>(256, size, queue);
     queue.memcpy(temp_ptr_xpu, temp_ptr_cpu, size * sizeof(int)).wait();
