@@ -8,15 +8,6 @@
 #include "utils.h"
 using namespace std;
 
-double timeit(cl::sycl::event &event) {
-    auto submit_time = event.get_profiling_info<cl::sycl::info::event_profiling::command_submit>();
-    auto start_time = event.get_profiling_info<cl::sycl::info::event_profiling::command_start>();
-    auto end_time = event.get_profiling_info<cl::sycl::info::event_profiling::command_end>();
-    auto submission_time = (start_time - submit_time) / 1000000.0f;
-    auto execution_time = (end_time - start_time) / 1000000.0f;
-    return execution_time;
-}
-
 template <typename T, int vec_size, typename item_t>
 inline void threads_copy_kernel(item_t &item, const T *in, T *out, const size_t n) {
     const int group_work_size = item.get_local_range(0) * vec_size;
