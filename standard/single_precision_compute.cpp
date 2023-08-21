@@ -5,16 +5,8 @@
 #include <vector>
 #include <algorithm>
 #include <assert.h>
+#include "utils.h"
 using namespace std;
-
-double timeit(cl::sycl::event &event) {
-    auto submit_time = event.get_profiling_info<cl::sycl::info::event_profiling::command_submit>();
-    auto start_time = event.get_profiling_info<cl::sycl::info::event_profiling::command_start>();
-    auto end_time = event.get_profiling_info<cl::sycl::info::event_profiling::command_end>();
-    auto submission_time = (start_time - submit_time) / 1000000.0f;
-    auto execution_time = (end_time - start_time) / 1000000.0f;
-    return execution_time;
-}
 
 template <int LOOP, typename item_t>
 inline void fmad_loop_kernel(item_t &item, float *x) {
