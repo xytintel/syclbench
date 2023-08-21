@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <assert.h>
+#include "utils.h"
 using namespace std;
 
 double timeit(cl::sycl::event &event) {
@@ -15,11 +16,6 @@ double timeit(cl::sycl::event &event) {
     auto execution_time = (end_time - start_time) / 1000000.0f;
     return execution_time;
 }
-
-template <typename T, int vec_size>
-struct alignas(sizeof(T) * vec_size) aligned_array {
-    T val[vec_size];
-};
 
 template <typename T, int vec_size, typename item_t>
 inline void threads_copy_kernel(item_t &item, const T *in, T *out, const size_t n) {
