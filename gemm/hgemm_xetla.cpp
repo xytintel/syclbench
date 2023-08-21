@@ -207,7 +207,7 @@ inline sycl::event gemm_core(
 
 // clang-format off
 #define HGEMM_COMMA ,
-#define HGEMM_NUM_POLICIES 20
+#define HGEMM_NUM_POLICIES 23
 #define HGEMM_ENUMERATE_POLICIES(_, T) \
     _(8, 64, 8, 16, 32)T      \
     _(8, 256, 8, 16, 16)T     \
@@ -226,9 +226,12 @@ inline sycl::event gemm_core(
     _(128, 128, 16, 32, 64)T  \
     _(128, 256, 32, 32, 16)T  \
     _(128, 512, 64, 32, 16)T  \
+    _(256, 16, 8, 16, 16)T    \
+    _(256, 32, 16, 16, 16)T   \
     _(256, 256, 64, 32, 16)T  \
     _(256, 256, 32, 64, 16)T  \
-    _(256, 256, 32, 64, 32)T
+    _(256, 256, 32, 64, 32)T  \
+    _(512, 16, 16, 16, 16)T
 // clang-format on
 
 HGEMM_ENUMERATE_POLICIES(HGEMM_IMPL, )
@@ -267,9 +270,10 @@ inline int select_gemm_config(
 
     std::vector<gemm_cfg_meta> metas;
     for (int i = 0; i < HGEMM_NUM_POLICIES; i++) {
+        auto traits = policy_traits[i];
         gemm_cfg_meta meta;
-        int wg_m = policy_traits[i].wg_m;
-        int wg_n = policy_traits[i].wg_n;
+        int wg_m = traits.wg_m;
+        int wg_n = traits.wg_n;
         int ms = (m + wg_m - 1) / wg_m;
         int ns = (n + wg_n - 1) / wg_n;
         meta.num_ss = ms * ns;
@@ -281,19 +285,14 @@ inline int select_gemm_config(
         metas.push_back(meta);
     }
     std::sort(metas.begin(), metas.end(), [](const auto &lhs, const auto &rhs) {
-        if (lhs.num_ss != rhs.num_ss)
-            return lhs.num_ss < rhs.num_ss;
-        else if (lhs.wg_eff != rhs.wg_eff)
+        if (lhs.wg_eff != rhs.wg_eff)
             return lhs.wg_eff > rhs.wg_eff;
+        else if (lhs.num_ss != rhs.num_ss)
+            return lhs.num_ss < rhs.num_ss;
         else
             return lhs.aspect_r < rhs.aspect_r;
     });
-    int idx;
-    for (int i = 0; i < metas.size(); i++) {
-        idx = metas[i].idx;
-        if (metas[i].num_ss >= TOTAL_SS)
-            break;
-    }
+    int idx = metas[0].idx;
     return is_b_row_major ? idx : idx + HGEMM_NUM_POLICIES;
 }
 
@@ -365,15 +364,26 @@ int main() {
     using scalar_t = sycl::half;
 
     std::vector<gemm_sizes> sizes;
-    // warmup
-    for (int i = 0; i < 3; i++)
-        sizes.push_back(gemm_sizes(2048, 2048, 2048));
 
-    sizes.push_back(gemm_sizes(2048, 2048, 2048));
-    sizes.push_back(gemm_sizes(4096, 4096, 4096));
+    sizes.push_back(gemm_sizes(100, 4096, 4096));
     sizes.push_back(gemm_sizes(8192, 8192, 8192));
 
-    int count = 0;
+    sizes.push_back(gemm_sizes(4, 16384, 2048));
+    sizes.push_back(gemm_sizes(4, 16384, 4096));
+    sizes.push_back(gemm_sizes(4, 16384, 8192));
+
+    sizes.push_back(gemm_sizes(9, 16384, 2048));
+    sizes.push_back(gemm_sizes(9, 16384, 4096));
+    sizes.push_back(gemm_sizes(9, 16384, 8192));
+
+    sizes.push_back(gemm_sizes(40, 8192, 2048));
+    sizes.push_back(gemm_sizes(40, 16384, 4096));
+    sizes.push_back(gemm_sizes(40, 8192, 8192));
+
+    sizes.push_back(gemm_sizes(16384, 4, 2048));
+    sizes.push_back(gemm_sizes(16384, 4, 4096));
+    sizes.push_back(gemm_sizes(16384, 4, 8192));
+
     for (auto size : sizes) {
         int m = size.m;
         int n = size.n;
@@ -381,69 +391,69 @@ int main() {
         auto alpha = size.alpha;
         auto beta = size.beta;
 
-        bool is_warmup = false;
-        if (count < 3) is_warmup = true;
+        for (int count = 0; count < 3; count++) {
+            bool is_warmup = count < 2;
 
-        auto a_cpu = new scalar_t[m * k];
-        auto b_cpu = new scalar_t[k * n];
-        auto out_cpu = new scalar_t[m * n];
-        for (int i = 0; i < m * k; i++)
-            a_cpu[i] = static_cast<scalar_t>((float)rand() / (float)RAND_MAX);
-        for (int i = 0; i < k * n; i++)
-            b_cpu[i] = static_cast<scalar_t>((float)rand() / (float)RAND_MAX);
-        for (int i = 0; i < m * n; i++)
-            out_cpu[i] = static_cast<scalar_t>((float)rand() / (float)RAND_MAX);
+            auto a_cpu = new scalar_t[m * k];
+            auto b_cpu = new scalar_t[k * n];
+            auto out_cpu = new scalar_t[m * n];
+            for (int i = 0; i < m * k; i++)
+                a_cpu[i] = static_cast<scalar_t>((float)rand() / (float)RAND_MAX);
+            for (int i = 0; i < k * n; i++)
+                b_cpu[i] = static_cast<scalar_t>((float)rand() / (float)RAND_MAX);
+            for (int i = 0; i < m * n; i++)
+                out_cpu[i] = static_cast<scalar_t>((float)rand() / (float)RAND_MAX);
 
-        auto a_xpu = sycl::aligned_alloc_device<scalar_t>(256, m * k, queue);
-        auto b_xpu = sycl::aligned_alloc_device<scalar_t>(256, k * n, queue);
-        auto out_xpu = sycl::aligned_alloc_device<scalar_t>(256, m * n, queue);
-        queue.memcpy(a_xpu, a_cpu, m * k * sizeof(scalar_t)).wait();
-        queue.memcpy(b_xpu, b_cpu, k * n * sizeof(scalar_t)).wait();
-        queue.memcpy(out_xpu, out_cpu, m * n * sizeof(scalar_t)).wait();
+            auto a_xpu = sycl::aligned_alloc_device<scalar_t>(256, m * k, queue);
+            auto b_xpu = sycl::aligned_alloc_device<scalar_t>(256, k * n, queue);
+            auto out_xpu = sycl::aligned_alloc_device<scalar_t>(256, m * n, queue);
+            queue.memcpy(a_xpu, a_cpu, m * k * sizeof(scalar_t)).wait();
+            queue.memcpy(b_xpu, b_cpu, k * n * sizeof(scalar_t)).wait();
+            queue.memcpy(out_xpu, out_cpu, m * n * sizeof(scalar_t)).wait();
 
-        auto a_xpu_ref = sycl::aligned_alloc_device<scalar_t>(256, m * k, queue);
-        auto b_xpu_ref = sycl::aligned_alloc_device<scalar_t>(256, k * n, queue);
-        auto out_xpu_ref = sycl::aligned_alloc_device<scalar_t>(256, m * n, queue);
-        queue.memcpy(a_xpu_ref, a_cpu, m * k * sizeof(scalar_t)).wait();
-        queue.memcpy(b_xpu_ref, b_cpu, k * n * sizeof(scalar_t)).wait();
-        queue.memcpy(out_xpu_ref, out_cpu, m * n * sizeof(scalar_t)).wait();
+            auto a_xpu_ref = sycl::aligned_alloc_device<scalar_t>(256, m * k, queue);
+            auto b_xpu_ref = sycl::aligned_alloc_device<scalar_t>(256, k * n, queue);
+            auto out_xpu_ref = sycl::aligned_alloc_device<scalar_t>(256, m * n, queue);
+            queue.memcpy(a_xpu_ref, a_cpu, m * k * sizeof(scalar_t)).wait();
+            queue.memcpy(b_xpu_ref, b_cpu, k * n * sizeof(scalar_t)).wait();
+            queue.memcpy(out_xpu_ref, out_cpu, m * n * sizeof(scalar_t)).wait();
 
-        flush_cache(queue);
+            flush_cache(queue);
 
-        gemm_xpu_ref<scalar_t>(queue, out_xpu_ref, a_xpu_ref, b_xpu_ref, m, n, k,
-                               alpha, beta);
-        auto timems =
-            gemm_xpu<scalar_t>(queue, out_xpu, a_xpu, b_xpu, m, n, k, alpha, beta, is_warmup);
+            gemm_xpu_ref<scalar_t>(queue, out_xpu_ref, a_xpu_ref, b_xpu_ref, m, n, k,
+                                   alpha, beta);
+            auto timems =
+                gemm_xpu<scalar_t>(queue, out_xpu, a_xpu, b_xpu, m, n, k, alpha, beta, is_warmup);
 
-        double total_bytes = ((double)m * k + k * n + m * n) * sizeof(scalar_t);
-        if (beta != 0.0f) total_bytes += m * n * sizeof(scalar_t);
-        double total_gbytes = total_bytes / 1000.0 / 1000 / 1000;
-        double total_flop = (double)2 * m * n * k;
-        double tflops = total_flop / (timems / 1000) * 1e-12;
+            double total_bytes = ((double)m * k + k * n + m * n) * sizeof(scalar_t);
+            if (beta != 0.0f) total_bytes += m * n * sizeof(scalar_t);
+            double total_gbytes = total_bytes / 1000.0 / 1000 / 1000;
+            double total_flop = (double)2 * m * n * k;
+            double tflops = total_flop / (timems / 1000) * 1e-12;
 
-        if (!is_warmup) {
-            std::cout << "timems=" << timems << ", gbps=" << total_gbytes / (timems / 1000.0)
-                      << ", tflops=" << tflops << ", compute_pressure=" << total_flop / total_bytes << "\n";
+            if (!is_warmup) {
+                std::cout << "timems=" << timems << ", gbps=" << total_gbytes / (timems / 1000.0)
+                          << ", tflops=" << tflops << ", compute_pressure=" << total_flop / total_bytes << "\n";
+            }
+
+            using MaxDiff = CompareMaxdiff<scalar_t>;
+            auto diff = MaxDiff(queue, out_xpu_ref, MaxDiff::XPU, out_xpu, MaxDiff::XPU, m * n);
+            auto maxdiff = diff();
+
+            assert(maxdiff <= (k / 4096.0 * 1.01));
+            if (!is_warmup)
+                std::cout << "maxdiff=" << maxdiff << std::endl;
+
+            sycl::free(a_xpu, queue);
+            sycl::free(b_xpu, queue);
+            sycl::free(out_xpu, queue);
+            sycl::free(a_xpu_ref, queue);
+            sycl::free(b_xpu_ref, queue);
+            sycl::free(out_xpu_ref, queue);
+            delete[] a_cpu;
+            delete[] b_cpu;
+            delete[] out_cpu;
         }
-
-        using MaxDiff = CompareMaxdiff<scalar_t>;
-        auto diff = MaxDiff(queue, out_xpu_ref, MaxDiff::XPU, out_xpu, MaxDiff::XPU, m * n);
-        auto maxdiff = diff();
-
-        assert(maxdiff <= (k / 4096.0 * 1.01));
-        if (!is_warmup)
-            std::cout << "maxdiff=" << maxdiff << std::endl;
-
-        sycl::free(a_xpu, queue);
-        sycl::free(b_xpu, queue);
-        sycl::free(out_xpu, queue);
-        sycl::free(a_xpu_ref, queue);
-        sycl::free(b_xpu_ref, queue);
-        sycl::free(out_xpu_ref, queue);
-        delete[] a_cpu;
-        delete[] b_cpu;
-        delete[] out_cpu;
-        count++;
     }
     return 0;
 }
