@@ -311,7 +311,8 @@ inline double gemm_xpu(
     const float beta,
     const bool is_warmup) {
     auto auto_selected_policy_id = select_gemm_config(m, n, k, true, 64);
-    double timems_min = 9999999.99;
+    double min_timems = 9999999.99;
+    double auto_timems;
     int min_id = -1;
     if (!is_warmup) {
         for (int i = 0; i < HGEMM_NUM_POLICIES; i++) {
@@ -327,14 +328,17 @@ inline double gemm_xpu(
             std::cout << "policy=" << i << ", m=" << m << ", n=" << n << ", k=" << k << ", n_ss=" << group_range_m * group_range_n << ", N_SG_PER_SS=" << slm_ks * thread_range_m * thread_range_n << ", WG_M=" << traits.wg_m << ", WG_N=" << traits.wg_n << ", SG_M=" << traits.sg_m << ", SG_N=" << traits.sg_n << ", SG_K=" << traits.sg_k << ", SLM_KS=" << slm_ks;
             auto event = policies[i](queue, out_, a, b, m, n, k, alpha, beta);
             auto timems = timeit(event);
-            if (timems < timems_min) {
-                timems_min = timems;
+            if (timems < min_timems) {
+                min_timems = timems;
                 min_id = i;
+            }
+            if (i == auto_selected_policy_id) {
+                auto_timems = timems;
             }
             std::cout << ", timems=" << timems << std::endl;
             sycl::free(out_, queue);
         }
-        std::cout << "auto_selected_policy_id=" << auto_selected_policy_id << ", timems_min=" << timems_min << ", min_id=" << min_id << std::endl;
+        std::cout << "auto_timems=" << auto_timems << ", auto_selected_policy_id=" << auto_selected_policy_id << ", min_timems=" << min_timems << ", min_id=" << min_id << std::endl;
     }
     auto event = policies[auto_selected_policy_id](queue, out, a, b, m, n, k, alpha, beta);
     return timeit(event);
