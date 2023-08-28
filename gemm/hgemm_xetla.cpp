@@ -188,50 +188,51 @@ inline sycl::event gemm_core(
     return gpu_event;
 }
 
-#define HGEMM_IMPL_NAME(WG_M, WG_N, SG_M, SG_N, SG_K) \
-    hgemm_core_##WG_M##x##WG_N##_##SG_M##x##SG_N##x##SG_K##_
-#define HGEMM_IMPL(WG_M, WG_N, SG_M, SG_N, SG_K)                                                     \
-    sycl::event HGEMM_IMPL_NAME(WG_M, WG_N, SG_M, SG_N, SG_K)(                                       \
-        sycl::queue & queue,                                                                         \
-        sycl::half * out,                                                                            \
-        const sycl::half *a,                                                                         \
-        const sycl::half *b,                                                                         \
-        const uint32_t m,                                                                            \
-        const uint32_t n,                                                                            \
-        const uint32_t k,                                                                            \
-        const float alpha,                                                                           \
-        const float beta) {                                                                          \
-        return gemm_core<sycl::half, WG_M, WG_N, SG_M, SG_N, SG_K, 32 / (WG_M * WG_N / SG_M / SG_N), \
-                         1, 1, 3, true, true>(queue, out, a, b, m, n, k, alpha, beta);               \
+#define HGEMM_IMPL_NAME(WG_M, WG_N, SG_M, SG_N, SG_K, SLM_KS) \
+    hgemm_core_##WG_M##x##WG_N##_##SG_M##x##SG_N##x##SG_K##_##SLM_KS##_
+#define HGEMM_IMPL(WG_M, WG_N, SG_M, SG_N, SG_K, SLM_KS)                               \
+    sycl::event HGEMM_IMPL_NAME(WG_M, WG_N, SG_M, SG_N, SG_K, SLM_KS)(                 \
+        sycl::queue & queue,                                                           \
+        sycl::half * out,                                                              \
+        const sycl::half *a,                                                           \
+        const sycl::half *b,                                                           \
+        const uint32_t m,                                                              \
+        const uint32_t n,                                                              \
+        const uint32_t k,                                                              \
+        const float alpha,                                                             \
+        const float beta) {                                                            \
+        return gemm_core<sycl::half, WG_M, WG_N, SG_M, SG_N, SG_K, SLM_KS,             \
+                         1, 1, 3, true, true>(queue, out, a, b, m, n, k, alpha, beta); \
     }
 
 // clang-format off
 #define HGEMM_COMMA ,
-#define HGEMM_NUM_POLICIES 23
+#define HGEMM_NUM_POLICIES 24
 #define HGEMM_ENUMERATE_POLICIES(_, T) \
-  _(8, 64, 8, 16, 32)T      \
-  _(8, 256, 8, 16, 16)T     \
-  _(8, 512, 8, 16, 16)T     \
-  _(16, 64, 16, 16, 16)T    \
-  _(16, 256, 16, 16, 16)T   \
-  _(16, 512, 16, 16, 16)T   \
-  _(32, 64, 32, 16, 16)T    \
-  _(32, 64, 8, 16, 16)T     \
-  _(32, 128, 32, 16, 16)T   \
-  _(32, 256, 32, 16, 16)T   \
-  _(32, 512, 32, 16, 16)T   \
-  _(64, 128, 64, 16, 16)T   \
-  _(64, 256, 64, 16, 16)T   \
-  _(64, 512, 64, 16, 16)T   \
-  _(128, 128, 32, 32, 32)T  \
-  _(128, 256, 64, 16, 16)T  \
-  _(128, 512, 64, 32, 16)T  \
-  _(256, 256, 64, 32, 16)T  \
-  _(256, 256, 32, 64, 16)T  \
-  _(256, 256, 32, 64, 32)T  \
-  _(128, 64, 16, 16, 64)T   \
-  _(128, 128, 16, 32, 64)T  \
-  _(128, 256, 32, 32, 16)T
+  _(8, 64, 8, 16, 32, 8)T      \
+  _(8, 128, 8, 16, 16, 2)T     \
+  _(8, 256, 8, 16, 16, 2)T     \
+  _(8, 512, 8, 16, 16, 1)T     \
+  _(16, 64, 16, 16, 16, 8)T    \
+  _(16, 256, 16, 16, 16, 2)T   \
+  _(16, 512, 16, 16, 16, 1)T   \
+  _(32, 64, 32, 16, 16, 8)T    \
+  _(32, 64, 8, 16, 16, 2)T     \
+  _(32, 128, 32, 16, 16, 4)T   \
+  _(32, 256, 32, 16, 16, 2)T   \
+  _(32, 512, 32, 16, 16, 1)T   \
+  _(64, 128, 64, 16, 16, 4)T   \
+  _(64, 256, 64, 16, 16, 2)T   \
+  _(64, 512, 64, 16, 16, 1)T   \
+  _(128, 128, 32, 32, 32, 2)T  \
+  _(128, 256, 64, 16, 16, 1)T  \
+  _(128, 512, 64, 32, 16, 1)T  \
+  _(256, 256, 64, 32, 16, 1)T  \
+  _(256, 256, 32, 64, 16, 1)T  \
+  _(256, 256, 32, 64, 32, 1)T  \
+  _(128, 64, 16, 16, 64, 1)T   \
+  _(128, 128, 16, 32, 64, 1)T  \
+  _(128, 256, 32, 32, 16, 1)T
 // clang-format on
 
 HGEMM_ENUMERATE_POLICIES(HGEMM_IMPL, )
@@ -242,16 +243,17 @@ sycl::event (*policies[HGEMM_NUM_POLICIES])(sycl::queue &, sycl::half *, const s
 struct PolicyTraits {
     int wg_m, wg_n;
     int sg_m, sg_n, sg_k;
-    PolicyTraits(int wg_m_, int wg_n_, int sg_m_, int sg_n_, int sg_k_) :
-        wg_m(wg_m_), wg_n(wg_n_), sg_m(sg_m_), sg_n(sg_n_), sg_k(sg_k_) {
+    int slm_ks;
+    PolicyTraits(int wg_m_, int wg_n_, int sg_m_, int sg_n_, int sg_k_, int slm_ks_) :
+        wg_m(wg_m_), wg_n(wg_n_), sg_m(sg_m_), sg_n(sg_n_), sg_k(sg_k_), slm_ks(slm_ks_) {
     }
 };
 
-#define HGEMM_POLICY_TRAITS(WG_M, WG_N, SG_M, SG_N, SG_K) PolicyTraits(WG_M, WG_N, SG_M, SG_N, SG_K)
+#define HGEMM_POLICY_TRAITS(WG_M, WG_N, SG_M, SG_N, SG_K, SLM_KS) PolicyTraits(WG_M, WG_N, SG_M, SG_N, SG_K, SLM_KS)
 PolicyTraits policy_traits[HGEMM_NUM_POLICIES] = {
     HGEMM_ENUMERATE_POLICIES(HGEMM_POLICY_TRAITS, HGEMM_COMMA)};
 
-#define HGEMM_POLICY_NAME(WG_M, WG_N, SG_M, SG_N, SG_K) "hgemm_core_" #WG_M "x" #WG_N "_" #SG_M "x" #SG_N "x" #SG_K
+#define HGEMM_POLICY_NAME(WG_M, WG_N, SG_M, SG_N, SG_K, SLM_KS) "hgemm_core_" #WG_M "x" #WG_N "_" #SG_M "x" #SG_N "x" #SG_K "x" #SLM_KS "_"
 const char *policy_names[HGEMM_NUM_POLICIES] = {
     HGEMM_ENUMERATE_POLICIES(HGEMM_POLICY_NAME, HGEMM_COMMA)};
 
@@ -309,38 +311,8 @@ inline double gemm_xpu(
     const int k,
     const float alpha,
     const float beta,
-    const bool is_warmup) {
-    auto auto_selected_policy_id = select_gemm_config(m, n, k, true, 64);
-    double min_timems = 9999999.99;
-    double auto_timems;
-    int min_id = -1;
-    if (!is_warmup) {
-        for (int i = 0; i < HGEMM_NUM_POLICIES; i++) {
-            auto out_ = sycl::aligned_alloc_device<scalar_t>(256, m * n, queue);
-            queue.memcpy(out_, out, m * n * sizeof(scalar_t)).wait();
-            flush_cache(queue);
-            auto traits = policy_traits[i];
-            uint32_t group_range_m = (m + traits.wg_m - 1) / traits.wg_m;
-            uint32_t group_range_n = (n + traits.wg_n - 1) / traits.wg_n;
-            uint32_t thread_range_m = traits.wg_m / traits.sg_m;
-            uint32_t thread_range_n = traits.wg_n / traits.sg_n;
-            auto slm_ks = 32 / (traits.wg_m * traits.wg_n / traits.sg_m / traits.sg_n);
-            std::cout << "policy=" << i << ", m=" << m << ", n=" << n << ", k=" << k << ", n_ss=" << group_range_m * group_range_n << ", N_SG_PER_SS=" << slm_ks * thread_range_m * thread_range_n << ", WG_M=" << traits.wg_m << ", WG_N=" << traits.wg_n << ", SG_M=" << traits.sg_m << ", SG_N=" << traits.sg_n << ", SG_K=" << traits.sg_k << ", SLM_KS=" << slm_ks;
-            auto event = policies[i](queue, out_, a, b, m, n, k, alpha, beta);
-            auto timems = timeit(event);
-            if (timems < min_timems) {
-                min_timems = timems;
-                min_id = i;
-            }
-            if (i == auto_selected_policy_id) {
-                auto_timems = timems;
-            }
-            std::cout << ", timems=" << timems << std::endl;
-            sycl::free(out_, queue);
-        }
-        std::cout << "auto_timems=" << auto_timems << ", auto_selected_policy_id=" << auto_selected_policy_id << ", min_timems=" << min_timems << ", min_id=" << min_id << std::endl;
-    }
-    auto event = policies[auto_selected_policy_id](queue, out, a, b, m, n, k, alpha, beta);
+    const int policy_id) {
+    auto event = policies[policy_id](queue, out, a, b, m, n, k, alpha, beta);
     return timeit(event);
 }
 
@@ -373,8 +345,9 @@ void gemm_xpu_ref(sycl::queue &q, scalar_t *out, const scalar_t *a,
 struct gemm_sizes {
     int m, n, k;
     float alpha, beta;
-    gemm_sizes(int m_, int n_, int k_, float a = 1.2, float b = 0.5) :
+    gemm_sizes(int m_, int n_, int k_, float a = 1.2, float b = 0.0) :
         m(m_), n(n_), k(k_), alpha(a), beta(b) {
+        assert(b == 0.0);
     }
 };
 
@@ -386,6 +359,8 @@ int main() {
     using scalar_t = sycl::half;
 
     std::vector<gemm_sizes> sizes;
+
+    sizes.push_back(gemm_sizes(1, 5376, 14336));
 
     sizes.push_back(gemm_sizes(1, 7168, 14336));
     sizes.push_back(gemm_sizes(1, 14336, 7168));
@@ -416,70 +391,112 @@ int main() {
         int k = size.k;
         auto alpha = size.alpha;
         auto beta = size.beta;
+        uint64_t memory_size = (m * k + k * n + m * n) * sizeof(scalar_t);
+        uint64_t rounds = (memory_size + LLC_SIZE - 1) / memory_size + 1;
 
-        for (int count = 0; count < 3; count++) {
-            bool is_warmup = count < 2;
+        auto a_cpu = new scalar_t[m * k];
+        auto b_cpu = new scalar_t[k * n];
+        auto out_cpu = new scalar_t[m * n];
+        for (int i = 0; i < m * k; i++)
+            a_cpu[i] = static_cast<scalar_t>((float)rand() / (float)RAND_MAX);
+        for (int i = 0; i < k * n; i++)
+            b_cpu[i] = static_cast<scalar_t>((float)rand() / (float)RAND_MAX);
+        for (int i = 0; i < m * n; i++)
+            out_cpu[i] = static_cast<scalar_t>((float)rand() / (float)RAND_MAX);
 
-            auto a_cpu = new scalar_t[m * k];
-            auto b_cpu = new scalar_t[k * n];
-            auto out_cpu = new scalar_t[m * n];
-            for (int i = 0; i < m * k; i++)
-                a_cpu[i] = static_cast<scalar_t>((float)rand() / (float)RAND_MAX);
-            for (int i = 0; i < k * n; i++)
-                b_cpu[i] = static_cast<scalar_t>((float)rand() / (float)RAND_MAX);
-            for (int i = 0; i < m * n; i++)
-                out_cpu[i] = static_cast<scalar_t>((float)rand() / (float)RAND_MAX);
-
-            auto a_xpu = sycl::aligned_alloc_device<scalar_t>(256, m * k, queue);
-            auto b_xpu = sycl::aligned_alloc_device<scalar_t>(256, k * n, queue);
-            auto out_xpu = sycl::aligned_alloc_device<scalar_t>(256, m * n, queue);
+        scalar_t **a_xpu_pool = new scalar_t *[rounds];
+        scalar_t **b_xpu_pool = new scalar_t *[rounds];
+        scalar_t **out_xpu_pool = new scalar_t *[rounds];
+        for (int i = 0; i < rounds; i++) {
+            int index = i % rounds;
+            auto &a_xpu = a_xpu_pool[index];
+            auto &b_xpu = b_xpu_pool[index];
+            auto &out_xpu = out_xpu_pool[index];
+            a_xpu = sycl::aligned_alloc_device<scalar_t>(256, m * k, queue);
+            b_xpu = sycl::aligned_alloc_device<scalar_t>(256, k * n, queue);
+            out_xpu = sycl::aligned_alloc_device<scalar_t>(256, m * n, queue);
             queue.memcpy(a_xpu, a_cpu, m * k * sizeof(scalar_t)).wait();
             queue.memcpy(b_xpu, b_cpu, k * n * sizeof(scalar_t)).wait();
             queue.memcpy(out_xpu, out_cpu, m * n * sizeof(scalar_t)).wait();
+        }
 
-            auto a_xpu_ref = sycl::aligned_alloc_device<scalar_t>(256, m * k, queue);
-            auto b_xpu_ref = sycl::aligned_alloc_device<scalar_t>(256, k * n, queue);
-            auto out_xpu_ref = sycl::aligned_alloc_device<scalar_t>(256, m * n, queue);
-            queue.memcpy(a_xpu_ref, a_cpu, m * k * sizeof(scalar_t)).wait();
-            queue.memcpy(b_xpu_ref, b_cpu, k * n * sizeof(scalar_t)).wait();
-            queue.memcpy(out_xpu_ref, out_cpu, m * n * sizeof(scalar_t)).wait();
+        constexpr int WARM_UP = 10;
+        constexpr int RUNS = 100;
 
-            flush_cache(queue);
+        int auto_policy_id = select_gemm_config(m, n, k, true, 64);
+        int min_policy_id;
+        double auto_policy_timems, min_policy_timems = 99999999.99;
+        for (int policy_id = 0; policy_id < HGEMM_NUM_POLICIES; policy_id++) {
+            double total_timems = 0.0;
+            for (int i = 0; i < WARM_UP + RUNS; i++) {
+                int index = i % rounds;
+                auto &a_xpu = a_xpu_pool[index];
+                auto &b_xpu = b_xpu_pool[index];
+                auto &out_xpu = out_xpu_pool[index];
+                double timems = gemm_xpu<scalar_t>(queue, out_xpu, a_xpu, b_xpu, m, n, k, alpha, beta, policy_id);
+                if (i >= WARM_UP)
+                    total_timems += timems;
+            }
+            double policy_timems = total_timems / RUNS;
 
-            gemm_xpu_ref<scalar_t>(queue, out_xpu_ref, a_xpu_ref, b_xpu_ref, m, n, k,
-                                   alpha, beta);
-            auto timems =
-                gemm_xpu<scalar_t>(queue, out_xpu, a_xpu, b_xpu, m, n, k, alpha, beta, is_warmup);
+            auto traits = policy_traits[policy_id];
+            uint32_t group_range_m = (m + traits.wg_m - 1) / traits.wg_m;
+            uint32_t group_range_n = (n + traits.wg_n - 1) / traits.wg_n;
+            uint32_t thread_range_m = traits.wg_m / traits.sg_m;
+            uint32_t thread_range_n = traits.wg_n / traits.sg_n;
+            auto slm_ks = traits.slm_ks;
+            std::cout << "policy=" << policy_id << ", m=" << m << ", n=" << n << ", k=" << k << ", n_ss=" << group_range_m * group_range_n;
+            std::cout << ", N_SG_PER_SS=" << slm_ks * thread_range_m * thread_range_n << ", WG_M=" << traits.wg_m << ", WG_N=" << traits.wg_n;
+            std::cout << ", SG_M=" << traits.sg_m << ", SG_N=" << traits.sg_n << ", SG_K=" << traits.sg_k << ", SLM_KS=" << slm_ks;
+            std::cout << ", timems=" << policy_timems;
 
             double total_bytes = ((double)m * k + k * n + m * n) * sizeof(scalar_t);
             if (beta != 0.0f) total_bytes += m * n * sizeof(scalar_t);
             double total_gbytes = total_bytes / 1000.0 / 1000 / 1000;
             double total_flop = (double)2 * m * n * k;
-            double tflops = total_flop / (timems / 1000) * 1e-12;
+            double tflops = total_flop / (policy_timems / 1000) * 1e-12;
+            std::cout << ", gbps=" << total_gbytes / (policy_timems / 1000.0)
+                      << ", tflops=" << tflops << ", compute_pressure=" << total_flop / total_bytes << "\n";
 
-            if (!is_warmup) {
-                std::cout << "timems=" << timems << ", gbps=" << total_gbytes / (timems / 1000.0)
-                          << ", tflops=" << tflops << ", compute_pressure=" << total_flop / total_bytes << "\n";
+            if (policy_id == auto_policy_id) auto_policy_timems = policy_timems;
+            if (policy_timems < min_policy_timems) {
+                min_policy_timems = policy_timems;
+                min_policy_id = policy_id;
             }
-
-            using MaxDiff = CompareMaxdiff<scalar_t>;
-            auto diff = MaxDiff(queue, out_xpu_ref, MaxDiff::XPU, out_xpu, MaxDiff::XPU, m * n);
-            auto maxdiff = diff();
-
-            // assert(maxdiff <= (k / 4096.0 * 1.01));
-            if (!is_warmup)
-                std::cout << "maxdiff=" << maxdiff << std::endl;
-
-            sycl::free(a_xpu, queue);
-            sycl::free(b_xpu, queue);
-            sycl::free(out_xpu, queue);
-            sycl::free(a_xpu_ref, queue);
-            sycl::free(b_xpu_ref, queue);
-            sycl::free(out_xpu_ref, queue);
-            delete[] a_cpu;
-            delete[] b_cpu;
-            delete[] out_cpu;
         }
+
+        std::cout << "auto_policy_id=" << auto_policy_id << ", auto_policy_timems=";
+        std::cout << auto_policy_timems << ", min_policy_id=" << min_policy_id << ", min_policy_timems=" << min_policy_timems << std::endl;
+
+        auto &out_xpu = out_xpu_pool[0];
+        auto a_xpu_ref = sycl::aligned_alloc_device<scalar_t>(256, m * k, queue);
+        auto b_xpu_ref = sycl::aligned_alloc_device<scalar_t>(256, k * n, queue);
+        auto out_xpu_ref = sycl::aligned_alloc_device<scalar_t>(256, m * n, queue);
+        queue.memcpy(a_xpu_ref, a_cpu, m * k * sizeof(scalar_t)).wait();
+        queue.memcpy(b_xpu_ref, b_cpu, k * n * sizeof(scalar_t)).wait();
+        queue.memcpy(out_xpu_ref, out_cpu, m * n * sizeof(scalar_t)).wait();
+        gemm_xpu_ref<scalar_t>(queue, out_xpu_ref, a_xpu_ref, b_xpu_ref, m, n, k, alpha, beta);
+        using MaxDiff = CompareMaxdiff<scalar_t>;
+        auto diff = MaxDiff(queue, out_xpu_ref, MaxDiff::XPU, out_xpu, MaxDiff::XPU, m * n);
+        auto maxdiff = diff();
+        // assert(maxdiff <= (k / 4096.0 * 1.01));
+        std::cout << "maxdiff=" << maxdiff << std::endl;
+        sycl::free(a_xpu_ref, queue);
+        sycl::free(b_xpu_ref, queue);
+        sycl::free(out_xpu_ref, queue);
+
+        delete[] a_cpu;
+        delete[] b_cpu;
+        delete[] out_cpu;
+        for (int i = 0; i < rounds; i++) {
+            sycl::free(a_xpu_pool[i], queue);
+            sycl::free(b_xpu_pool[i], queue);
+            sycl::free(out_xpu_pool[i], queue);
+        }
+        delete[] a_xpu_pool;
+        delete[] b_xpu_pool;
+        delete[] out_xpu_pool;
     }
+
     return 0;
 }
