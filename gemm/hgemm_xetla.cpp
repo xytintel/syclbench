@@ -209,29 +209,29 @@ inline sycl::event gemm_core(
 #define HGEMM_COMMA ,
 #define HGEMM_NUM_POLICIES 23
 #define HGEMM_ENUMERATE_POLICIES(_, T) \
-    _(8, 64, 8, 16, 32)T      \
-    _(8, 256, 8, 16, 16)T     \
-    _(8, 512, 8, 16, 16)T     \
-    _(16, 64, 16, 16, 16)T    \
-    _(16, 256, 16, 16, 16)T   \
-    _(16, 512, 16, 16, 16)T   \
-    _(32, 64, 32, 16, 16)T    \
-    _(32, 128, 32, 16, 16)T   \
-    _(32, 256, 32, 16, 16)T   \
-    _(32, 512, 32, 16, 16)T   \
-    _(64, 128, 64, 16, 16)T   \
-    _(64, 256, 64, 16, 16)T   \
-    _(64, 512, 64, 16, 16)T   \
-    _(128, 64, 16, 16, 64)T   \
-    _(128, 128, 16, 32, 64)T  \
-    _(128, 256, 32, 32, 16)T  \
-    _(128, 512, 64, 32, 16)T  \
-    _(256, 16, 8, 16, 16)T    \
-    _(256, 32, 16, 16, 16)T   \
-    _(256, 256, 64, 32, 16)T  \
-    _(256, 256, 32, 64, 16)T  \
-    _(256, 256, 32, 64, 32)T  \
-    _(512, 16, 16, 16, 16)T
+  _(8, 64, 8, 16, 32)T      \
+  _(8, 256, 8, 16, 16)T     \
+  _(8, 512, 8, 16, 16)T     \
+  _(16, 64, 16, 16, 16)T    \
+  _(16, 256, 16, 16, 16)T   \
+  _(16, 512, 16, 16, 16)T   \
+  _(32, 64, 32, 16, 16)T    \
+  _(32, 64, 8, 16, 16)T     \
+  _(32, 128, 32, 16, 16)T   \
+  _(32, 256, 32, 16, 16)T   \
+  _(32, 512, 32, 16, 16)T   \
+  _(64, 128, 64, 16, 16)T   \
+  _(64, 256, 64, 16, 16)T   \
+  _(64, 512, 64, 16, 16)T   \
+  _(128, 128, 32, 32, 32)T  \
+  _(128, 256, 64, 16, 16)T  \
+  _(128, 512, 64, 32, 16)T  \
+  _(256, 256, 64, 32, 16)T  \
+  _(256, 256, 32, 64, 16)T  \
+  _(256, 256, 32, 64, 32)T  \
+  _(128, 64, 16, 16, 64)T   \
+  _(128, 128, 16, 32, 64)T  \
+  _(128, 256, 32, 32, 16)T
 // clang-format on
 
 HGEMM_ENUMERATE_POLICIES(HGEMM_IMPL, )
@@ -310,13 +310,23 @@ inline double gemm_xpu(
     const bool is_warmup) {
     auto auto_selected_policy_id = select_gemm_config(m, n, k, true, 64);
     if (!is_warmup) {
-        auto traits = policy_traits[auto_selected_policy_id];
-        uint32_t group_range_m = (m + traits.wg_m - 1) / traits.wg_m;
-        uint32_t group_range_n = (n + traits.wg_n - 1) / traits.wg_n;
-        uint32_t thread_range_m = traits.wg_m / traits.sg_m;
-        uint32_t thread_range_n = traits.wg_n / traits.sg_n;
-        auto slm_ks = 32 / (traits.wg_m * traits.wg_n / traits.sg_m / traits.sg_n);
-        std::cout << "m=" << m << ", n=" << n << ", k=" << k << ", n_ss=" << group_range_m * group_range_n << ", N_SG_PER_SS=" << slm_ks * thread_range_m * thread_range_n << ", WG_M=" << traits.wg_m << ", WG_N=" << traits.wg_n << ", SG_M=" << traits.sg_m << ", SG_N=" << traits.sg_n << ", SG_K=" << traits.sg_k << ", SLM_KS=" << slm_ks << "\n";
+        for (int i = 0; i < HGEMM_NUM_POLICIES; i++) {
+            auto out_ = sycl::aligned_alloc_device<scalar_t>(256, m * n, queue);
+            queue.memcpy(out_, out, m * n * sizeof(scalar_t)).wait();
+            flush_cache(queue);
+            auto traits = policy_traits[i];
+            uint32_t group_range_m = (m + traits.wg_m - 1) / traits.wg_m;
+            uint32_t group_range_n = (n + traits.wg_n - 1) / traits.wg_n;
+            uint32_t thread_range_m = traits.wg_m / traits.sg_m;
+            uint32_t thread_range_n = traits.wg_n / traits.sg_n;
+            auto slm_ks = 32 / (traits.wg_m * traits.wg_n / traits.sg_m / traits.sg_n);
+            std::cout << "policy=" << i << ", m=" << m << ", n=" << n << ", k=" << k << ", n_ss=" << group_range_m * group_range_n << ", N_SG_PER_SS=" << slm_ks * thread_range_m * thread_range_n << ", WG_M=" << traits.wg_m << ", WG_N=" << traits.wg_n << ", SG_M=" << traits.sg_m << ", SG_N=" << traits.sg_n << ", SG_K=" << traits.sg_k << ", SLM_KS=" << slm_ks;
+            auto event = policies[i](queue, out_, a, b, m, n, k, alpha, beta);
+            auto timems = timeit(event);
+            std::cout << ", timems=" << timems << std::endl;
+            sycl::free(out_, queue);
+        }
+        std::cout << "auto_selected_policy_id=" << auto_selected_policy_id << "\n";
     }
     auto event = policies[auto_selected_policy_id](queue, out, a, b, m, n, k, alpha, beta);
     return timeit(event);
