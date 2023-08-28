@@ -17,3 +17,5 @@ void flush_cache(sycl::queue &queue) {
     delete[] temp_ptr_cpu;
     sycl::free(temp_ptr_xpu, queue);
 }
+
+#define LLC_SIZE (1024 * 1024 * 224)
