@@ -426,18 +426,18 @@ int main(int argc, char *argv[]) {
             uint32_t thread_range_m = traits.wg_m / traits.sg_m;
             uint32_t thread_range_n = traits.wg_n / traits.sg_n;
             auto slm_ks = traits.slm_ks;
-            std::cout << "policy=" << policy_id << ", m=" << m << ", n=" << n << ", k=" << k << ", n_ss=" << group_range_m * group_range_n;
-            std::cout << ", N_SG_PER_SS=" << slm_ks * thread_range_m * thread_range_n << ", WG_M=" << traits.wg_m << ", WG_N=" << traits.wg_n;
-            std::cout << ", SG_M=" << traits.sg_m << ", SG_N=" << traits.sg_n << ", SG_K=" << traits.sg_k << ", SLM_KS=" << slm_ks;
-            std::cout << ", timems=" << policy_timems;
+            std::cout << "{ \"policy\":" << policy_id << ", \"m\":" << m << ", \"n\":" << n << ", \"k\":" << k << ", \"n_ss\":" << group_range_m * group_range_n;
+            std::cout << ", \"N_SG_PER_SS\":" << slm_ks * thread_range_m * thread_range_n << ", \"WG_M\":" << traits.wg_m << ", \"WG_N\":" << traits.wg_n;
+            std::cout << ", \"SG_M\":" << traits.sg_m << ", \"SG_N\":" << traits.sg_n << ", \"SG_K\":" << traits.sg_k << ", \"SLM_KS\":" << slm_ks;
+            std::cout << ", \"timems\":" << policy_timems;
 
             double total_bytes = ((double)m * k + k * n + m * n) * sizeof(scalar_t);
             if (beta != 0.0f) total_bytes += m * n * sizeof(scalar_t);
             double total_gbytes = total_bytes / 1000.0 / 1000 / 1000;
             double total_flop = (double)2 * m * n * k;
             double tflops = total_flop / (policy_timems / 1000) * 1e-12;
-            std::cout << ", gbps=" << total_gbytes / (policy_timems / 1000.0)
-                      << ", tflops=" << tflops << ", compute_pressure=" << total_flop / total_bytes << "\n";
+            std::cout << ", \"gbps\":" << total_gbytes / (policy_timems / 1000.0)
+                      << ", \"tflops\":" << tflops << ", \"compute_pressure\":" << total_flop / total_bytes << " }\n";
 
             if (policy_id == auto_policy_id) auto_policy_timems = policy_timems;
             if (policy_timems < min_policy_timems) {
