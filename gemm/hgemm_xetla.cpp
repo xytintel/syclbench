@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <map>
 #include <algorithm>
+#include <cstdlib>
 
 using namespace cl::sycl;
 using namespace gpu;
@@ -351,7 +352,7 @@ struct gemm_sizes {
     }
 };
 
-int main() {
+int main(int argc, char *argv[]) {
     std::cout << "hgemm_xetla_row_tuning\n";
     sycl::queue queue(
         sycl::gpu_selector_v,
@@ -360,30 +361,10 @@ int main() {
 
     std::vector<gemm_sizes> sizes;
 
-    sizes.push_back(gemm_sizes(1, 5376, 14336));
-
-    sizes.push_back(gemm_sizes(1, 7168, 14336));
-    sizes.push_back(gemm_sizes(1, 14336, 7168));
-    sizes.push_back(gemm_sizes(1, 14336, 1792));
-
-    sizes.push_back(gemm_sizes(100, 4096, 4096));
-    sizes.push_back(gemm_sizes(8192, 8192, 8192));
-
-    sizes.push_back(gemm_sizes(4, 16384, 2048));
-    sizes.push_back(gemm_sizes(4, 16384, 4096));
-    sizes.push_back(gemm_sizes(4, 16384, 8192));
-
-    sizes.push_back(gemm_sizes(9, 16384, 2048));
-    sizes.push_back(gemm_sizes(9, 16384, 4096));
-    sizes.push_back(gemm_sizes(9, 16384, 8192));
-
-    sizes.push_back(gemm_sizes(40, 8192, 2048));
-    sizes.push_back(gemm_sizes(40, 16384, 4096));
-    sizes.push_back(gemm_sizes(40, 8192, 8192));
-
-    sizes.push_back(gemm_sizes(16384, 4, 2048));
-    sizes.push_back(gemm_sizes(16384, 4, 4096));
-    sizes.push_back(gemm_sizes(16384, 4, 8192));
+    int arg_m = std::atoi(argv[1]);
+    int arg_n = std::atoi(argv[2]);
+    int arg_k = std::atoi(argv[3]);
+    sizes.push_back(gemm_sizes(arg_m, arg_n, arg_k));
 
     for (auto size : sizes) {
         int m = size.m;
