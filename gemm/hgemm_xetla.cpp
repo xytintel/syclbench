@@ -208,13 +208,15 @@ inline sycl::event gemm_core(
 
 // clang-format off
 #define HGEMM_COMMA ,
-#define HGEMM_NUM_POLICIES 24
+#define HGEMM_NUM_POLICIES 26
 #define HGEMM_ENUMERATE_POLICIES(_, T) \
   _(8, 64, 8, 16, 32, 8)T      \
   _(8, 128, 8, 16, 16, 2)T     \
+  _(8, 128, 8, 16, 32, 4)T     \
   _(8, 256, 8, 16, 16, 2)T     \
   _(8, 512, 8, 16, 16, 1)T     \
   _(16, 64, 16, 16, 16, 8)T    \
+  _(16, 256, 8, 16, 16, 1)T    \
   _(16, 256, 16, 16, 16, 2)T   \
   _(16, 512, 16, 16, 16, 1)T   \
   _(32, 64, 32, 16, 16, 8)T    \
