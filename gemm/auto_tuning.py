@@ -43,10 +43,10 @@ def main():
     mnk2policy = {}
     for data in datas:
         # {"m=1, n=7168, k=14336", hgemm_policy::_8x256_8x16x16_2_true_},
-        key = "m={}, n={}, k={}".format(data[0]['m'], data[0]['n'], data[0]['k'])
+        key = "{{{}, {}, {}}}".format(data[0]['m'], data[0]['n'], data[0]['k'])
         cur = data[0]
         string = "hgemm_policy::_{}x{}_{}x{}x{}_{}_true_".format(cur['WG_M'], cur['WG_N'], cur['SG_M'], cur['SG_N'], cur['SG_K'], cur['SLM_KS'])
-        item = "{{\"{}\", {}}},".format(key, string)
+        item = "{{{}, {}}},".format(key, string)
         print(item)
 
     #     print(key)
