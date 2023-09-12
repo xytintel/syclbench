@@ -1,7 +1,8 @@
 import sys
 import json
 from subprocess import check_call, check_output
-from configs import policies, print_policy
+from configs import PolicyRegion, policies, print_policy
+from evaluate import get_all_shapes
 
 
 def sort_out_policy(res):
@@ -36,11 +37,7 @@ def run_and_select(m, n, k):
     return good_policies
 
 
-def main():
-    check_call(['bash', 'build.sh', './hgemm_policy_search/hgemm_xetla.cpp'])
-    m = int(sys.argv[1])
-    n = int(sys.argv[2])
-    k = int(sys.argv[3])
+def search_mnk(m, n, k):
     good_policies = run_and_select(m, n, k)
     policy_id = good_policies[0]
     print("starting point at m={}, n={}, k={}, policy:{}".format(m, n, k, print_policy(policy_id)))
@@ -126,6 +123,33 @@ def main():
     print("end_m = {}".format(end_m))
     print("{}: {}<=m<={}, {}<=n<={}, {}<=k<={}".format(
         print_policy(policy_id), int(begin_m), int(end_m), int(begin_n), int(end_n), int(begin_k), int(end_k)))
+    
+    return PolicyRegion(policy_id, int(begin_m), int(end_m), int(begin_n), int(end_n), int(begin_k), int(end_k))
+
+
+def main():
+    check_call(['bash', 'build.sh', './hgemm_policy_search/hgemm_xetla.cpp'])
+
+    shapes = get_all_shapes('./hgemm_policy_search/focus_shapes.txt')
+    shapes = shapes[:20]
+    
+    results = []
+    for shape in shapes:
+        m = shape[0]
+        n = shape[1]
+        k = shape[2]
+        existed = False
+        for region in results:
+            if region.has(m, n, k):
+                existed = True
+                break
+        if not existed:
+            res = search_mnk(m, n, k)
+            results.append(res)
+    for res in results:
+        string = "PolicyRegion({}, {}, {}, {}, {}, {}, {}),".format(
+            res.policy_id, res.begin_m, res.end_m, res.begin_n, res.end_n, res.begin_k, res.end_k)
+        print(string)
 
 
 if __name__ == '__main__':
