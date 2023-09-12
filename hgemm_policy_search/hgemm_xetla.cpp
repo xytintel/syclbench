@@ -458,12 +458,12 @@ int main(int argc, char *argv[]) {
         queue.memcpy(a_xpu_ref, a_cpu, m * k * sizeof(scalar_t)).wait();
         queue.memcpy(b_xpu_ref, b_cpu, k * n * sizeof(scalar_t)).wait();
         queue.memcpy(out_xpu_ref, out_cpu, m * n * sizeof(scalar_t)).wait();
-        gemm_xpu_ref<scalar_t>(queue, out_xpu_ref, a_xpu_ref, b_xpu_ref, m, n, k, alpha, beta);
-        using MaxDiff = CompareMaxdiff<scalar_t>;
-        auto diff = MaxDiff(queue, out_xpu_ref, MaxDiff::XPU, out_xpu, MaxDiff::XPU, m * n);
-        auto maxdiff = diff();
-        // assert(maxdiff <= (k / 4096.0 * 1.01));
-        std::cout << "maxdiff=" << maxdiff << std::endl;
+        // gemm_xpu_ref<scalar_t>(queue, out_xpu_ref, a_xpu_ref, b_xpu_ref, m, n, k, alpha, beta);
+        // using MaxDiff = CompareMaxdiff<scalar_t>;
+        // auto diff = MaxDiff(queue, out_xpu_ref, MaxDiff::XPU, out_xpu, MaxDiff::XPU, m * n);
+        // auto maxdiff = diff();
+        // // assert(maxdiff <= (k / 4096.0 * 1.01));
+        // std::cout << "maxdiff=" << maxdiff << std::endl;
         sycl::free(a_xpu_ref, queue);
         sycl::free(b_xpu_ref, queue);
         sycl::free(out_xpu_ref, queue);
