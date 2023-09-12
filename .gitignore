@@ -1,3 +1,17 @@
+.coverage
+.hypothesis
+.mypy_cache
+*/*.pyc
+*/*.so*
+*/**/__pycache__
+*/**/*.dylib*
+*/**/*.pyc
+*/**/*.pyd
+*/**/*.so*
+*/**/**/*.pyc
+*/**/**/**/*.pyc
+*/**/**/**/**/*.pyc
+
 a.out
 genxir
 asm
