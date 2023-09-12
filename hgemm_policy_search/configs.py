@@ -30,12 +30,7 @@ class GemmConfig:
             vn = n
         wg_eff = vm * vn / self.wg_m / self.wg_n
         aspect_r = max(self.wg_m / self.wg_n, self.wg_n / self.wg_m)
-        r = {
-            'num_ss': num_ss,
-            'wg_eff': wg_eff,
-            'aspect_r': aspect_r,
-        }
-        return r
+        return num_ss, wg_eff, aspect_r
 
 
 policies = []
@@ -55,3 +50,25 @@ def print_policy(idx):
     string = "<{}>hgemm_policy::_{}x{}_{}x{}x{}_{}_true_".format(idx, policy.wg_m, 
                     policy.wg_n, policy.sg_m, policy.sg_n, policy.sg_k, policy.slm_ks)
     return string
+
+
+class PolicyRegion:
+    def __init__(self, policy_id, begin_m, end_m, begin_n, end_n, begin_k, end_k):
+        self.policy_id = policy_id
+        self.begin_m = begin_m
+        self.end_m = end_m
+        self.begin_n = begin_n
+        self.end_n = end_n
+        self.begin_k = begin_k
+        self.end_k = end_k
+    
+    def has(self, m, n, k):
+        m_valid = m >= self.begin_m and m <= self.end_m
+        n_valid = n >= self.begin_n and n <= self.end_n
+        k_valid = k >= self.begin_k and k <= self.end_k
+        return m_valid and n_valid and k_valid
+
+
+policy_regions = [
+    PolicyRegion(23, 0, 1, 2048, 8192, 1024, 16384),
+]
