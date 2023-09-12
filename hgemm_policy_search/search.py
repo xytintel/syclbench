@@ -53,12 +53,12 @@ def search_mnk(m, n, k):
             begin_k *= 2
             break
     print("begin_k = {}".format(begin_k))
-    
+
     end_k = k
     while True:
         end_k *= 2
-        if int(end_k) > 32768:
-            end_k = 32768
+        if int(end_k) >= 65536:
+            end_k = 65536
             break
         good_policies = run_and_select(m, n, end_k)
         if policy_id not in good_policies:
@@ -81,8 +81,8 @@ def search_mnk(m, n, k):
     end_n = n
     while True:
         end_n *= 2
-        if int(end_n) > 32768:
-            end_n = 32768
+        if int(end_n) > 65536:
+            end_n = 65536
             break
         p0 = run_and_select(m, end_n, begin_k)
         p1 = run_and_select(m, end_n, end_k)
@@ -92,34 +92,34 @@ def search_mnk(m, n, k):
     print("end_n = {}".format(end_n))
 
     begin_m = m
-    while True:
-        begin_m /= 2
-        if int(begin_m) <= 0:
-            break
-        p0 = run_and_select(begin_m, begin_n, begin_k)
-        p1 = run_and_select(begin_m, begin_n, end_k)
-        p2 = run_and_select(begin_m, end_n, begin_k)
-        p3 = run_and_select(begin_m, end_n, end_k)
-        if (policy_id not in p0) or (policy_id not in p1) \
-            or (policy_id not in p2) or (policy_id not in p3):
-            begin_m *= 2
-            break
+    # while True:
+    #     begin_m /= 2
+    #     if int(begin_m) <= 0:
+    #         break
+    #     p0 = run_and_select(begin_m, begin_n, begin_k)
+    #     p1 = run_and_select(begin_m, begin_n, end_k)
+    #     p2 = run_and_select(begin_m, end_n, begin_k)
+    #     p3 = run_and_select(begin_m, end_n, end_k)
+    #     if (policy_id not in p0) or (policy_id not in p1) \
+    #         or (policy_id not in p2) or (policy_id not in p3):
+    #         begin_m *= 2
+    #         break
     print("begin_m = {}".format(begin_m))
 
     end_m = m
-    while True:
-        end_m *= 2
-        if int(end_m) > 32768:
-            end_m = 32768
-            break
-        p0 = run_and_select(end_m, begin_n, begin_k)
-        p1 = run_and_select(end_m, begin_n, end_k)
-        p2 = run_and_select(end_m, end_n, begin_k)
-        p3 = run_and_select(end_m, end_n, end_k)
-        if (policy_id not in p0) or (policy_id not in p1) \
-            or (policy_id not in p2) or (policy_id not in p3):
-            end_m /= 2
-            break
+    # while True:
+    #     end_m *= 2
+    #     if int(end_m) > 32768:
+    #         end_m = 32768
+    #         break
+    #     p0 = run_and_select(end_m, begin_n, begin_k)
+    #     p1 = run_and_select(end_m, begin_n, end_k)
+    #     p2 = run_and_select(end_m, end_n, begin_k)
+    #     p3 = run_and_select(end_m, end_n, end_k)
+    #     if (policy_id not in p0) or (policy_id not in p1) \
+    #         or (policy_id not in p2) or (policy_id not in p3):
+    #         end_m /= 2
+    #         break
     print("end_m = {}".format(end_m))
     print("{}: {}<=m<={}, {}<=n<={}, {}<=k<={}".format(
         print_policy(policy_id), int(begin_m), int(end_m), int(begin_n), int(end_n), int(begin_k), int(end_k)))
@@ -129,10 +129,17 @@ def search_mnk(m, n, k):
 
 def main():
     check_call(['bash', 'build.sh', './hgemm_policy_search/hgemm_xetla.cpp'])
+    # shapes = get_all_shapes('./hgemm_policy_search/focus_shapes.txt')
+    id_base = 0
+    ms = [1]
+    ns = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+    ks = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+    shapes = []
+    for m in ms:
+        for n in ns:
+            for k in ks:
+                shapes.append([m, n, k])
 
-    shapes = get_all_shapes('./hgemm_policy_search/focus_shapes.txt')
-    shapes = shapes[:20]
-    
     results = []
     for shape in shapes:
         m = shape[0]
@@ -146,10 +153,18 @@ def main():
         if not existed:
             res = search_mnk(m, n, k)
             results.append(res)
-    for res in results:
-        string = "PolicyRegion({}, {}, {}, {}, {}, {}, {}),".format(
-            res.policy_id, res.begin_m, res.end_m, res.begin_n, res.end_n, res.begin_k, res.end_k)
+    for i, res in enumerate(results):
+        string = "PolicyRegion({}, {}, {}, {}, {}, {}, {}), // {}".format(
+            res.policy_id, res.begin_m, res.end_m, res.begin_n, res.end_n, res.begin_k, res.end_k, i + id_base)
         print(string)
+
+    # m = int(sys.argv[1])
+    # n = int(sys.argv[2])
+    # k = int(sys.argv[3])
+    # res = search_mnk(m, n, k)
+    # string = "PolicyRegion({}, {}, {}, {}, {}, {}, {}),".format(
+    #         res.policy_id, res.begin_m, res.end_m, res.begin_n, res.end_n, res.begin_k, res.end_k)
+    # print(string)
 
 
 if __name__ == '__main__':
