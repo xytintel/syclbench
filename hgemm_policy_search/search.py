@@ -37,6 +37,7 @@ def run_and_select(m, n, k):
 
 
 def main():
+    check_call(['bash', 'build.sh', './hgemm_policy_search/hgemm_xetla.cpp'])
     m = int(sys.argv[1])
     n = int(sys.argv[2])
     k = int(sys.argv[3])
@@ -59,7 +60,8 @@ def main():
     end_k = k
     while True:
         end_k *= 2
-        if int(end_k) >= 32768:
+        if int(end_k) > 32768:
+            end_k = 32768
             break
         good_policies = run_and_select(m, n, end_k)
         if policy_id not in good_policies:
@@ -82,7 +84,8 @@ def main():
     end_n = n
     while True:
         end_n *= 2
-        if int(end_n) >= 32768:
+        if int(end_n) > 32768:
+            end_n = 32768
             break
         p0 = run_and_select(m, end_n, begin_k)
         p1 = run_and_select(m, end_n, end_k)
@@ -109,7 +112,8 @@ def main():
     end_m = m
     while True:
         end_m *= 2
-        if int(end_m) >= 32768:
+        if int(end_m) > 32768:
+            end_m = 32768
             break
         p0 = run_and_select(end_m, begin_n, begin_k)
         p1 = run_and_select(end_m, begin_n, end_k)
