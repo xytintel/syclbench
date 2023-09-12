@@ -48,9 +48,12 @@ def search_mnk(m, n, k):
         begin_k /= 2
         if int(begin_k) <= 0:
             break
-        good_policies = run_and_select(m, n, begin_k)
-        if policy_id not in good_policies:
-            begin_k *= 2
+        try:
+            good_policies = run_and_select(m, n, begin_k)
+            if policy_id not in good_policies:
+                begin_k *= 2
+                break
+        except Exception as e:
             break
     print("begin_k = {}".format(begin_k))
 
@@ -60,9 +63,12 @@ def search_mnk(m, n, k):
         if int(end_k) >= 65536:
             end_k = 65536
             break
-        good_policies = run_and_select(m, n, end_k)
-        if policy_id not in good_policies:
-            end_k /= 2
+        try:
+            good_policies = run_and_select(m, n, end_k)
+            if policy_id not in good_policies:
+                end_k /= 2
+                break
+        except Exception as e:
             break
     print("end_k = {}".format(end_k))
 
@@ -71,10 +77,13 @@ def search_mnk(m, n, k):
         begin_n /= 2
         if int(begin_n) <= 0:
             break
-        p0 = run_and_select(m, begin_n, begin_k)
-        p1 = run_and_select(m, begin_n, end_k)
-        if (policy_id not in p0) or (policy_id not in p1):
-            begin_n *= 2
+        try:
+            p0 = run_and_select(m, begin_n, begin_k)
+            p1 = run_and_select(m, begin_n, end_k)
+            if (policy_id not in p0) or (policy_id not in p1):
+                begin_n *= 2
+                break
+        except Exception as e:
             break
     print("begin_n = {}".format(begin_n))
 
@@ -84,10 +93,13 @@ def search_mnk(m, n, k):
         if int(end_n) > 65536:
             end_n = 65536
             break
-        p0 = run_and_select(m, end_n, begin_k)
-        p1 = run_and_select(m, end_n, end_k)
-        if (policy_id not in p0) or (policy_id not in p1):
-            begin_n /= 2
+        try:
+            p0 = run_and_select(m, end_n, begin_k)
+            p1 = run_and_select(m, end_n, end_k)
+            if (policy_id not in p0) or (policy_id not in p1):
+                begin_n /= 2
+                break
+        except Exception as e:
             break
     print("end_n = {}".format(end_n))
 
@@ -131,7 +143,8 @@ def main():
     check_call(['bash', 'build.sh', './hgemm_policy_search/hgemm_xetla.cpp'])
     # shapes = get_all_shapes('./hgemm_policy_search/focus_shapes.txt')
     id_base = 0
-    ms = [1]
+    ms = [1, 4, 8, 12, 16, 24, 32, 48, 64, 96, 128]
+    # ms = [64]
     ns = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
     ks = [128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
     shapes = []
