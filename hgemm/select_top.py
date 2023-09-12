@@ -28,8 +28,8 @@ def sort_out_policy(res):
 
 
 def main():
-    shapes = get_all_shapes('./gemm/focus_shapes.txt')
-    check_call(['bash', 'build.sh', './gemm/hgemm_xetla.cpp'])
+    shapes = get_all_shapes('./hgemm/focus_shapes.txt')
+    check_call(['bash', 'build.sh', './hgemm/hgemm_xetla.cpp'])
     datas = []
     for shape in shapes:
         m = shape[0]
