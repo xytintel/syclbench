@@ -1,5 +1,6 @@
 import sys
 import json
+from tqdm import tqdm
 from subprocess import check_call, check_output
 from configs import policies, print_policy
 from evaluate import get_all_shapes
@@ -43,17 +44,19 @@ def main():
     check_call(['bash', 'build.sh', './hgemm_policy_search/hgemm_xetla.cpp'])
     id_base = 0
     ms = [1, 4, 8, 12, 16, 24, 32, 48, 64, 96, 128, 256]
-    ns = [128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 32768, 50272]
-    ks = [512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 32768, 50272]
+    ns = [128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 32768]
+    ks = [512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 32768]
     shapes = []
     for m in ms:
         for n in ns:
             for k in ks:
                 shapes.append([m, n, k])
     
+    pbar = tqdm(total=len(shapes), ncols=80)
     with open('hgemm_policy_search_raw.log', 'w') as rf:
         with open('hgemm_policy_search.log', 'w') as f:
             for i, shape in enumerate(shapes):
+                pbar.update(1)
                 m = shape[0]
                 n = shape[1]
                 k = shape[2]
@@ -67,7 +70,10 @@ def main():
                     f.write(item)
                     f.flush()
                 except Exception as e:
+                    print("error: m={}, n={}, k={}".format(m, n, k))
+                    raise
                     pass
+    pbar.close()
 
 
 if __name__ == '__main__':
