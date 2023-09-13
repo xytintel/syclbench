@@ -65,7 +65,7 @@ def sort_out_policy(res):
 def main():
     check_call(['bash', 'build.sh', './hgemm_policy_search/hgemm_xetla.cpp'])
     shapes = get_all_shapes('./hgemm_policy_search/focus_shapes.txt')
-    shapes = shapes[:20]
+    # shapes = shapes[:20]
     hit = 0
     for shape in shapes:
         m = shape[0]
