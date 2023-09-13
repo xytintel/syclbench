@@ -56,35 +56,45 @@ def main():
     shapes = get_all_shapes('./hgemm_policy_search/focus_shapes.txt')
     # shapes = shapes[:20]
     hit = 0
-    for shape in shapes:
-        m = shape[0]
-        n = shape[1]
-        k = shape[2]
-        print("collecting: m={}, n={}, k={}".format(m, n, k))
-        pred_policy = policy_algo_baseline(m, n, k)
-        output = check_output(['./a.out', str(m), str(n), str(k)])
-        output = output.decode('utf-8')
-        real_policy_rank = sort_out_policy(output)
-        good_policies = []
-        timems_best = real_policy_rank[0]['timems']
-        for i, item in enumerate(real_policy_rank):
-            timems = item['timems']
-            policy_id = item['policy']
-            diff = abs(timems - timems_best) / timems_best
-            if diff < 0.1:
-                string = "real_{}_hgemm_policy::_{}x{}_{}x{}x{}_{}_true_:{}".format(policy_id, item['WG_M'], 
-                    item['WG_N'], item['SG_M'], item['SG_N'], item['SG_K'], item['SLM_KS'],
-                    item['timems'])
-                print(string)
-                good_policies.append(policy_id)
+    with open('not_hit.log', 'w') as f:
+        for shape in shapes:
+            m = shape[0]
+            n = shape[1]
+            k = shape[2]
+            print("collecting: m={}, n={}, k={}".format(m, n, k))
+            pred_policy = policy_algo_baseline(m, n, k)
+            output = check_output(['./a.out', str(m), str(n), str(k)])
+            output = output.decode('utf-8')
+            real_policy_rank = sort_out_policy(output)
+            good_policies = []
+            timems_best = real_policy_rank[0]['timems']
+            for i, item in enumerate(real_policy_rank):
+                timems = item['timems']
+                policy_id = item['policy']
+                diff = abs(timems - timems_best) / timems_best
+                if diff < 0.1:
+                    string = "real_{}_hgemm_policy::_{}x{}_{}x{}x{}_{}_true_:{}".format(policy_id, item['WG_M'], 
+                        item['WG_N'], item['SG_M'], item['SG_N'], item['SG_K'], item['SLM_KS'],
+                        item['timems'])
+                    print(string)
+                    good_policies.append(policy_id)
+                else:
+                    break
+            string = "pred_{}_hgemm_policy::_{}x{}_{}x{}x{}_{}_true_".format(pred_policy.id, pred_policy.wg_m, 
+                        pred_policy.wg_n, pred_policy.sg_m, pred_policy.sg_n, pred_policy.sg_k, 
+                        pred_policy.slm_ks)
+            print(string)
+            if pred_policy.id in good_policies:
+                hit += 1
             else:
-                break
-        string = "pred_{}_hgemm_policy::_{}x{}_{}x{}x{}_{}_true_".format(pred_policy.id, pred_policy.wg_m, 
-                    pred_policy.wg_n, pred_policy.sg_m, pred_policy.sg_n, pred_policy.sg_k, 
-                    pred_policy.slm_ks)
-        print(string)
-        if pred_policy.id in good_policies:
-            hit += 1
+                res = policies[good_policies[0]]
+                key = "{{{}, {}, {}}}".format(m, n, k)
+                string = "hgemm_policy::_{}x{}_{}x{}x{}_{}_true_".format(
+                    res.wg_m, res.wg_n, res.sg_m, res.sg_n, res.sg_k, res.slm_ks)
+                info = "{{{}, {}}},\n".format(key, string)
+                f.write(info)
+                f.flush()
+
     hit_rate = hit / len(shapes)
     print("hit_rate:{}".format(hit_rate))
 
