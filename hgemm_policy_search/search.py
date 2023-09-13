@@ -49,19 +49,22 @@ def main():
             for k in ks:
                 shapes.append([m, n, k])
 
-    for i, shape in enumerate(shapes):
-        m = shape[0]
-        n = shape[1]
-        k = shape[2]
-        try:
-            res = policies[run_and_select(m, n, k)[0]]
-            key = "{{{}, {}, {}}}".format(m, n, k)
-            string = "hgemm_policy::_{}x{}_{}x{}x{}_{}_true_".format(
-                res.wg_m, res.wg_n, res.sg_m, res.sg_n, res.sg_k, res.slm_ks)
-            item = "{{{}, {}}}, // {}".format(key, string, i)
-            print(item)
-        except Exception as e:
-            pass
+    with open('hgemm_policy_search.log', 'w') as f:
+        for i, shape in enumerate(shapes):
+            m = shape[0]
+            n = shape[1]
+            k = shape[2]
+            try:
+                res = policies[run_and_select(m, n, k)[0]]
+                key = "{{{}, {}, {}}}".format(m, n, k)
+                string = "hgemm_policy::_{}x{}_{}x{}x{}_{}_true_".format(
+                    res.wg_m, res.wg_n, res.sg_m, res.sg_n, res.sg_k, res.slm_ks)
+                item = "{{{}, {}}}, // {}\n".format(key, string, i)
+                # print(item)
+                f.write(item)
+                f.flush()
+            except Exception as e:
+                pass
 
 
 if __name__ == '__main__':
