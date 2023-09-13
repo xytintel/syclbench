@@ -7,16 +7,17 @@ import bisect
 
 def policy_algo_baseline(m, n, k):
 
-    ms = [1, 4, 8, 12, 16, 24, 32, 48, 64, 96, 128]
-    ns = [128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 32768]
-    ks = [512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 32768]
-    m_ = ms[bisect.bisect_right(ms, m) - 1]
-    n_ = ns[bisect.bisect_right(ns, n) - 1]
-    k_ = ks[bisect.bisect_right(ks, k) - 1]
-    key = "{}, {}, {}".format(m_, n_, k_)
-    policy_id = mnk2_policy_id.get(key, None)
-    if policy_id is not None:
-        return policies[policy_id]
+    if m <= 128 and n <= 32768 and k <=32768:
+        ms = [1, 4, 8, 12, 16, 24, 32, 48, 64, 96, 128]
+        ns = [128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 32768]
+        ks = [512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 32768]
+        m_ = ms[bisect.bisect_right(ms, m) - 1]
+        n_ = ns[bisect.bisect_right(ns, n) - 1]
+        k_ = ks[bisect.bisect_right(ks, k) - 1]
+        key = "{}, {}, {}".format(m_, n_, k_)
+        policy_id = mnk2_policy_id.get(key, None)
+        if policy_id is not None:
+            return policies[policy_id]
 
     print('--- using algo')
     def compare_fn(lhs, rhs):
