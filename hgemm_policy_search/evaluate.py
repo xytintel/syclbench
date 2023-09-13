@@ -1,13 +1,24 @@
 import json
 from functools import cmp_to_key
 from subprocess import check_call, check_output
-from configs import policies, policy_regions
+from configs import policies, mnk2_policy_id
+import bisect
 
 
 def policy_algo_baseline(m, n, k):
-    for region in policy_regions:
-        if region.has(m, n, k):
-            return policies[region.policy_id]
+
+    ms = [1, 4, 8, 12, 16, 24, 32, 48, 64, 96, 128]
+    ns = [128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 32768]
+    ks = [512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192, 12288, 16384, 32768]
+    m_ = ms[bisect.bisect_right(ms, m) - 1]
+    n_ = ns[bisect.bisect_right(ns, n) - 1]
+    k_ = ks[bisect.bisect_right(ks, k) - 1]
+    key = "{}, {}, {}".format(m_, n_, k_)
+    policy_id = mnk2_policy_id.get(key, None)
+    if policy_id is not None:
+        return policies[policy_id]
+
+    print('--- using algo')
     def compare_fn(lhs, rhs):
         TOTAL_SS = 64
         lhs_num_ss, lhs_wg_eff, lhs_aspect_r = lhs.traits(m, n, k)
@@ -70,7 +81,7 @@ def main():
             timems = item['timems']
             policy_id = item['policy']
             diff = abs(timems - timems_best) / timems_best
-            if diff < 0.05:
+            if diff < 0.1:
                 string = "real_{}_hgemm_policy::_{}x{}_{}x{}x{}_{}_true_:{}".format(policy_id, item['WG_M'], 
                     item['WG_N'], item['SG_M'], item['SG_N'], item['SG_K'], item['SLM_KS'],
                     item['timems'])
