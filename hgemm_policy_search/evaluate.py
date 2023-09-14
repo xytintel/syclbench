@@ -1,4 +1,5 @@
 import json
+from math import log
 from functools import cmp_to_key
 from subprocess import check_call, check_output
 from configs import policies, mnk2policy
@@ -23,6 +24,56 @@ def policy_algo_baseline(m, n, k):
             return -1 if lhs_aspect_r < rhs_aspect_r else 1
     sorted_policies = sorted(policies, key=cmp_to_key(compare_fn))
     return sorted_policies[0]
+
+
+# def policy_algo_baseline(m, n, k):
+#     def key_fn(key):
+#         sgLimit = 32
+#         xeCores = 64
+#         (wgNegThreshold, reqNegThreshold, reqPosThreshold, sgNegThreshold, sgPerWgNegThresold) = (26, 160, 512, 192, 4)
+#         (wgNegWeight, reqNegWeight, reqPosWeight, sgNegWeight, sgPerWgNegWeight, kSlicingWight, threadThrottlingWight, imbalanceWeight) = (1, 1, 0.5, 0.3, 0.1, 0.1, 0.05, 0.2)
+
+#         wgM = key.wg_m
+#         sgM = key.sg_m
+#         wgN = key.wg_n
+#         sgN = key.sg_n
+#         sgK = key.sg_k
+#         kSlicing = key.slm_ks
+
+#         threadThrottling = 1
+#         if (wgM / sgM) > int((m + sgM - 1) // sgM):
+#             threadThrottling = (wgM / sgM) / int((m + sgM - 1) // sgM)
+        
+#         sgPerWg = (wgM / sgM) / threadThrottling * (wgN / sgN) * kSlicing
+#         workgroups = int((m + (wgM - 1)) // wgM) * int((n + (wgN - 1)) // wgN)
+#         subgroups = sgPerWg * workgroups
+#         sgConcur = subgroups
+#         imbalance = 0
+#         if sgConcur > (sgLimit * xeCores / threadThrottling): 
+#             if (sgConcur % (sgLimit * xeCores / threadThrottling)) != 0:
+#                 imbalance = 1
+#             sgConcur = sgLimit * xeCores / threadThrottling
+#         reqs = sgConcur * sgK / 32 * sgN / 32
+
+#         score = 0
+#         if workgroups < wgNegThreshold:
+#             score -= ((log(wgNegThreshold / workgroups) / log(2)) * wgNegWeight)
+#         if reqs < reqNegThreshold:
+#             score -= ((log(reqNegThreshold / reqs) / log(2)) * reqNegWeight)
+#         if reqs > reqPosThreshold:
+#             score -= ((log(reqs / reqPosThreshold) / log(2)) * reqPosWeight)
+#         if subgroups < sgNegThreshold:
+#             score -= ((log(sgNegThreshold / subgroups) / log(2)) * sgNegWeight)
+#         if sgPerWg < sgPerWgNegThresold:
+#             score -= ((log(sgPerWgNegThresold / sgPerWg) / log(2)) * sgPerWgNegThresold)
+#         score -= ((log(kSlicing) / log(2)) * kSlicingWight)
+#         score += ((log(threadThrottling) / log(2)) * threadThrottlingWight)
+#         score -= (imbalance * imbalanceWeight)
+
+#         return -score
+
+#     sorted_policies = sorted(policies, key=key_fn)
+#     return sorted_policies[0]
 
 
 def get_all_shapes(file):
@@ -56,6 +107,7 @@ def main():
     shapes = get_all_shapes('./hgemm_policy_search/focus_shapes.txt')
     # shapes = shapes[:20]
     hit = 0
+    num_samples = 0
     with open('not_hit.log', 'w') as f:
         for shape in shapes:
             m = shape[0]
@@ -68,6 +120,7 @@ def main():
             real_policy_rank = sort_out_policy(output)
             good_policies = []
             timems_best = real_policy_rank[0]['timems']
+            timems_pred = 0
             for i, item in enumerate(real_policy_rank):
                 timems = item['timems']
                 policy_id = item['policy']
@@ -79,11 +132,13 @@ def main():
                     print(string)
                     good_policies.append(policy_id)
                 else:
-                    break
-            string = "pred_{}_hgemm_policy::_{}x{}_{}x{}x{}_{}_true_".format(pred_policy.id, pred_policy.wg_m, 
+                    if pred_policy.id == policy_id:
+                        timems_pred = timems
+            string = "pred_{}_hgemm_policy::_{}x{}_{}x{}x{}_{}_true_:{}".format(pred_policy.id, pred_policy.wg_m, 
                         pred_policy.wg_n, pred_policy.sg_m, pred_policy.sg_n, pred_policy.sg_k, 
-                        pred_policy.slm_ks)
+                        pred_policy.slm_ks, timems_pred)
             print(string)
+            num_samples += 1
             if pred_policy.id in good_policies:
                 hit += 1
             else:
@@ -95,7 +150,7 @@ def main():
                 f.write(info)
                 f.flush()
 
-    hit_rate = hit / len(shapes)
+    hit_rate = hit / num_samples
     print("hit_rate:{}".format(hit_rate))
 
 
