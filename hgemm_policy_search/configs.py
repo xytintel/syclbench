@@ -2365,6 +2365,58 @@ sample_string = """
 {{256, 32768, 12288}, hgemm_policy::_256x256_32x64x32_1_true_}, // 2301
 {{256, 32768, 16384}, hgemm_policy::_256x256_64x32x16_1_true_}, // 2302
 {{256, 32768, 32768}, hgemm_policy::_256x256_32x64x32_1_true_}, // 2303
+{{33, 4096, 16384}, hgemm_policy::_128x64_16x16x64_1_true_},
+{{33, 16384, 4096}, hgemm_policy::_128x512_64x32x16_1_true_},
+{{130, 4096, 4096}, hgemm_policy::_128x128_32x32x32_2_true_},
+{{1, 50400, 4096}, hgemm_policy::_128x512_64x32x16_1_true_},
+{{1, 50272, 4096}, hgemm_policy::_128x512_64x32x16_1_true_},
+{{4, 50400, 4096}, hgemm_policy::_128x512_64x32x16_1_true_},
+{{4, 50272, 4096}, hgemm_policy::_128x512_64x32x16_1_true_},
+{{1, 11008, 4096}, hgemm_policy::_16x256_8x16x16_1_true_},
+{{32, 11008, 4096}, hgemm_policy::_128x256_32x32x16_1_true_},
+{{64, 11008, 4096}, hgemm_policy::_64x256_64x16x16_2_true_},
+{{128, 11008, 4096}, hgemm_policy::_128x256_32x32x16_1_true_},
+{{256, 11008, 4096}, hgemm_policy::_256x256_32x64x32_1_true_},
+{{1, 32000, 4096}, hgemm_policy::_256x256_32x64x16_1_true_},
+{{1, 5120, 5120}, hgemm_policy::_8x128_8x16x16_2_true_},
+{{4, 5120, 5120}, hgemm_policy::_8x128_8x16x16_2_true_},
+{{32, 5120, 5120}, hgemm_policy::_32x128_32x16x16_4_true_},
+{{64, 5120, 5120}, hgemm_policy::_128x128_16x32x64_1_true_},
+{{128, 5120, 5120}, hgemm_policy::_128x128_16x32x64_1_true_},
+{{1, 32000, 5120}, hgemm_policy::_256x256_32x64x16_1_true_},
+{{1, 7168, 14336}, hgemm_policy::_8x256_8x16x16_2_true_},
+{{4, 7168, 14336}, hgemm_policy::_8x256_8x16x16_2_true_},
+{{33, 1792, 14336}, hgemm_policy::_32x64_32x16x16_8_true_},
+{{4, 14336, 7168}, hgemm_policy::_8x512_8x16x16_1_true_},
+{{32, 14336, 7168}, hgemm_policy::_16x512_16x16x16_1_true_},
+{{33, 14336, 1792}, hgemm_policy::_32x512_32x16x16_1_true_},
+{{1, 3584, 7168}, hgemm_policy::_32x64_8x16x16_2_true_},
+{{1, 7168, 3584}, hgemm_policy::_16x256_16x16x16_2_true_},
+{{1, 7168, 8192}, hgemm_policy::_8x256_8x16x16_2_true_},
+{{1, 8192, 7168}, hgemm_policy::_8x256_8x16x16_2_true_},
+{{1024, 8192, 7168}, hgemm_policy::_256x256_32x64x32_1_true_},
+{{1024, 256, 8192}, hgemm_policy::_32x128_32x16x16_4_true_},
+{{1, 5120, 6912}, hgemm_policy::_128x128_16x32x64_1_true_},
+{{1, 5120, 2560}, hgemm_policy::_128x128_32x32x32_2_true_},
+{{1, 6912, 5120}, hgemm_policy::_128x128_16x32x64_1_true_},
+{{4, 5120, 6912}, hgemm_policy::_128x128_16x32x64_1_true_},
+{{4, 5120, 2560}, hgemm_policy::_8x128_8x16x16_2_true_},
+{{4, 6912, 5120}, hgemm_policy::_128x128_16x32x64_1_true_},
+{{32, 2560, 5120}, hgemm_policy::_32x64_32x16x16_8_true_},
+{{32, 5120, 6912}, hgemm_policy::_32x128_32x16x16_4_true_},
+{{32, 5120, 2560}, hgemm_policy::_128x128_32x32x32_2_true_},
+{{33, 5120, 6912}, hgemm_policy::_128x128_16x32x64_1_true_},
+{{33, 5120, 2560}, hgemm_policy::_128x128_32x32x32_2_true_},
+{{1, 5504, 4096}, hgemm_policy::_8x128_8x16x16_2_true_},
+{{4, 5504, 4096}, hgemm_policy::_8x128_8x16x16_2_true_},
+{{32, 5504, 4096}, hgemm_policy::_32x128_32x16x16_4_true_},
+{{1, 50272, 7168}, hgemm_policy::_128x512_64x32x16_1_true_},
+{{4, 50272, 7168}, hgemm_policy::_128x512_64x32x16_1_true_},
+{{32, 3584, 7168}, hgemm_policy::_32x64_8x16x16_2_true_},
+{{1024, 3584, 7168}, hgemm_policy::_256x256_32x64x32_1_true_},
+{{4, 3584, 7168}, hgemm_policy::_32x64_8x16x16_2_true_},
+{{4, 7168, 8192}, hgemm_policy::_8x256_8x16x16_2_true_},
+{{4, 2560, 5120}, hgemm_policy::_16x64_16x16x16_8_true_},
 """
 
 
@@ -2381,6 +2433,11 @@ for line in sample_string.split('\n'):
 
 
 def mnk2policy(m, n_in, k_in):
+    key = "{}, {}, {}".format(m, n_in, k_in)
+    policy_id = mnk2_policy_id.get(key, None)
+    if policy_id is not None:
+        return policies[policy_id]
+
     n = n_in if n_in <= 32768 else 32768
     k = k_in if k_in <= 32768 else 32768
     if m <= 256:
@@ -2394,6 +2451,4 @@ def mnk2policy(m, n_in, k_in):
         policy_id = mnk2_policy_id.get(key, None)
         if policy_id is not None:
             return policies[policy_id]
-    else:
-        return policies[policy2id['hgemm_policy::_256x256_64x32x16_1_true_']]
-    return None
+    return policies[policy2id['hgemm_policy::_256x256_64x32x16_1_true_']]
