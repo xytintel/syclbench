@@ -78,9 +78,9 @@ def run_and_select(m, n, k, f):
     f.write(output)
     f.flush()
     real_policy_rank = sort_out_policy(output)
-    # timems_best = real_policy_rank[0]['timems']
+    gbps_best = real_policy_rank[0]['gbps']
     policy_id_best = real_policy_rank[0]['policy']
-    return policy_id_best
+    return policy_id_best, gbps_best
 
 
 def main():
@@ -94,11 +94,12 @@ def main():
                 n = shape[1]
                 k = shape[2]
                 try:
-                    res = policies[run_and_select(m, n, k, rf)]
+                    p = run_and_select(m, n, k, rf)
+                    res = policies[p[0]]
                     key = "{{{}, {}, {}}}".format(m, n, k)
                     string = "hgemm_policy::_{}x{}_{}x{}x{}_{}_true_".format(
                         res.wg_m, res.wg_n, res.sg_m, res.sg_n, res.sg_k, res.slm_ks)
-                    item = "{{{}, {}}}, // {}\n".format(key, string, i)
+                    item = "{{{}, {}}}, // {}, gbps:{}\n".format(key, string, i, p[1])
                     f.write(item)
                     f.flush()
                 except Exception as e:
