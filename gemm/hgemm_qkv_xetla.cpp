@@ -1,4 +1,5 @@
 #include "xetla.hpp"
+#include "gemm_config.h"
 #include "utils.h"
 #include <CL/sycl.hpp>
 #include <chrono>
@@ -136,38 +137,6 @@ inline sycl::event gemm_core(
         return gemm_core<sycl::half, WG_M, WG_N, SG_M, SG_N, SG_K, SLM_KS,             \
                          1, 1, 3, true, true>(queue, out0, out1, out2, a, b, m, n, k); \
     }
-
-// clang-format off
-#define HGEMM_COMMA ,
-#define HGEMM_NUM_POLICIES 26
-#define HGEMM_ENUMERATE_POLICIES(_, T) \
-  _(8, 64, 8, 16, 32, 8)T      \
-  _(8, 128, 8, 16, 16, 2)T     \
-  _(8, 128, 8, 16, 32, 4)T     \
-  _(8, 256, 8, 16, 16, 2)T     \
-  _(8, 512, 8, 16, 16, 1)T     \
-  _(16, 64, 16, 16, 16, 8)T    \
-  _(16, 256, 8, 16, 16, 1)T    \
-  _(16, 256, 16, 16, 16, 2)T   \
-  _(16, 512, 16, 16, 16, 1)T   \
-  _(32, 64, 32, 16, 16, 8)T    \
-  _(32, 64, 8, 16, 16, 2)T     \
-  _(32, 128, 32, 16, 16, 4)T   \
-  _(32, 256, 32, 16, 16, 2)T   \
-  _(32, 512, 32, 16, 16, 1)T   \
-  _(64, 128, 64, 16, 16, 4)T   \
-  _(64, 256, 64, 16, 16, 2)T   \
-  _(64, 512, 64, 16, 16, 1)T   \
-  _(128, 128, 32, 32, 32, 2)T  \
-  _(128, 256, 64, 16, 16, 1)T  \
-  _(128, 512, 64, 32, 16, 1)T  \
-  _(256, 256, 64, 32, 16, 1)T  \
-  _(256, 256, 32, 64, 16, 1)T  \
-  _(256, 256, 32, 64, 32, 1)T  \
-  _(128, 64, 16, 16, 64, 1)T   \
-  _(128, 128, 16, 32, 64, 1)T  \
-  _(128, 256, 32, 32, 16, 1)T
-// clang-format on
 
 HGEMM_ENUMERATE_POLICIES(HGEMM_IMPL, )
 sycl::event (*policies[HGEMM_NUM_POLICIES])(sycl::queue &, sycl::half *, sycl::half *, sycl::half *, const sycl::half *, const sycl::half *,
