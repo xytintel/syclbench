@@ -1,13 +1,13 @@
 #### global_memory_bandwidth
 
 ```bash
-bash build.sh standard/global_memory_bandwidth.cu ; ./a.out
+bash build.sh standard/global_memory_bandwidth.cpp ; ./a.out
 ```
 
 #### single_precision_compute
 
 ```bash
-bash build.sh standard/single_precision_compute.cu ; ./a.out
+bash build.sh standard/single_precision_compute.cpp ; ./a.out
 ```
 
 #### GEMM
