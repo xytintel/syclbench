@@ -1,4 +1,16 @@
-#### Usage
+#### global_memory_bandwidth
+
+```bash
+bash build.sh standard/global_memory_bandwidth.cu ; ./a.out
+```
+
+#### single_precision_compute
+
+```bash
+bash build.sh standard/single_precision_compute.cu ; ./a.out
+```
+
+#### GEMM
 
 1. Update "xetla_base" within build.sh (To specify XETLA root path)
 2. Build the GEMM benchmark
