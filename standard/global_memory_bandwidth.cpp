@@ -55,7 +55,7 @@ void test_threads_copy(size_t n) {
     queue.memcpy(in_xpu, in_cpu, n * sizeof(float)).wait();
 
     float timems;
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 300; i++)
         timems = threads_copy<float, vec_size>(queue, in_xpu, out_xpu, n);
 
     float total_GBytes = (n + n) * sizeof(float) / 1000.0 / 1000.0;
