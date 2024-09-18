@@ -52,7 +52,7 @@ void test_threads_unroll_copy(size_t n) {
     queue.memcpy(in_xpu, in_cpu, n * sizeof(T)).wait();
 
     float timems;
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 300; i++)
         timems = threads_unroll_copy<T, vec_size>(queue, in_xpu, out_xpu, n);
 
     float total_GBytes = (n + n) * sizeof(T) / 1000.0 / 1000.0;
